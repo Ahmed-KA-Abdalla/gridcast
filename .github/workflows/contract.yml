@@ -1,0 +1,23 @@
+name: contract
+
+# The fixtures the unit tests run against are recorded, so they cannot notice
+# the API changing shape. This job asks the live service the same questions once
+# a day and fails if the answers no longer match what the parsers assume.
+on:
+  schedule:
+    - cron: "15 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Check the live API against the recorded contract
+        run: pytest -m network

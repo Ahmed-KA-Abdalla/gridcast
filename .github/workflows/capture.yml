@@ -1,0 +1,49 @@
+name: capture
+
+# Runs on the half hour. GitHub does not guarantee punctuality for scheduled
+# workflows and drops runs under load, so gaps in the record are expected and
+# are treated as data rather than as failures.
+on:
+  schedule:
+    - cron: "0,30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# A late run must not overlap the next one and produce two commits racing for
+# the same branch.
+concurrency:
+  group: capture
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Capture
+        run: gridcast snapshot
+
+      - name: Commit
+        run: |
+          if [ -z "$(git status --porcelain data/raw)" ]; then
+            echo "nothing captured"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/raw
+          git commit -m "capture: $(date -u +'%Y-%m-%dT%H:%MZ')"
+          git push

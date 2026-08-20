@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "from": "2026-08-20T12:00Z",
+      "to": "2026-08-20T12:30Z",
+      "intensity": {"forecast": 266, "actual": null, "index": "moderate"}
+    },
+    {
+      "from": "2026-08-20T12:30Z",
+      "to": "2026-08-20T13:00Z",
+      "intensity": {"forecast": 254, "actual": null, "index": "moderate"}
+    },
+    {
+      "from": "2026-08-20T13:00Z",
+      "to": "2026-08-20T13:30Z",
+      "intensity": {"forecast": 241, "actual": null, "index": "low"}
+    }
+  ]
+}
