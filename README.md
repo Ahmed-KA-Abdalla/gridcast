@@ -7,20 +7,23 @@ The published forecast is revised every half hour and no history of it is
 retained: the API serves the current estimate for a period and overwrites it as
 that estimate changes. Forecast accuracy at a given lead time therefore cannot
 be measured after the fact from the API alone. This repository records each
-forecast at the moment it is issued, records the realised value when it settles,
-and scores one against the other.
+forecast at the moment it is issued and records the realised value when it
+settles, so that the two can later be scored against each other.
 
-The eventual aim is a learned correction to the published forecast, promoted
-into use only when it beats the published forecast out of sample. Nothing of
-that exists yet; the current state is described below.
+The intended addition is a learned correction to the published forecast,
+promoted into use only when it beats that forecast out of sample. None of the
+modelling exists yet; the current state is below.
 
 ## Status
 
-Working: the API client, the parsers, schema validation, raw snapshot storage,
-the command-line interface, and the scheduled capture workflow.
+Built: the API client, the parsers, schema validation, raw snapshot storage, the
+command-line interface, the scheduled capture workflow, and a daily contract
+check against the live API.
 
-Not yet built: feature construction, the baseline and candidate models, the
-promotion gate, drift monitoring, and the published evaluation report.
+Not built: the joined forecast-to-outcome dataset, feature construction, the
+baseline and candidate models, the promotion gate, drift monitoring, and the
+published evaluation report. No accuracy figures are reported anywhere in this
+repository because none have been computed.
 
 ## Data
 
@@ -39,29 +42,41 @@ Three endpoints are captured every half hour:
 
 Raw responses are written verbatim under `data/raw/YYYY/MM/DD/`, each wrapped in
 an envelope recording the endpoint requested and the time the response arrived.
-Filenames are built from a short validated label rather than the request path,
-because request paths contain colons and a colon in a Windows path silently
-opens an alternate data stream instead of creating a visible file.
-Parsed derivatives are not stored. The parser will change; a stored payload can
-be reprocessed under a corrected parser, and a stored derivative cannot.
+Parsed derivatives are not stored: the parser will change, and a stored payload
+can be reprocessed under a corrected parser where a stored derivative cannot.
 
-## Two conventions worth knowing
+Partitioning is by the date of capture, not the date the data describe. A
+backfill run therefore writes every window it fetched under the day it ran; the
+range each file covers is recorded in the envelope and in the filename.
+
+The raw record is committed to the repository rather than kept in object
+storage. It is small, its accumulation over time is the point of the project,
+and holding it in git means the whole thing can be reproduced by cloning.
+
+## Conventions worth knowing
 
 **Capture time is part of the data.** Every parsed row carries `captured_at` and
 a `horizon_hours` lead time. Without them a forecast is indistinguishable from a
-later revision of itself, which makes accuracy by lead time unmeasurable.
-
-**The live API does not match its published schema.** `/generation` returns a
-bare object where the specification promises an array. Both parsers normalise
-either form. Because the offline fixtures are recorded from the specification,
-they cannot catch this class of divergence; the daily contract workflow exists
-for that.
+later revision of itself, which makes accuracy by lead time unmeasurable and
+makes any model trained on revised forecasts subject to leakage.
 
 **Half-hour positions are UTC, not settlement periods.** GB settlement periods
 are numbered against the local clock day, which has 46 or 50 of them at the
-daylight-saving transitions. The parser labels rows `utc_half_hour` and carries
-local clock time separately. The two agree for most of the year and disagree
-exactly on the days when the system behaves unusually.
+daylight-saving transitions. Rows carry `utc_half_hour` for the position on the
+UTC grid and local clock time separately. The two agree for most of the year and
+disagree exactly on the days when the system behaves unusually.
+
+**Filenames come from a validated label, not the request path.** Request paths
+contain colons. On NTFS a colon separates a filename from an alternate data
+stream, so writing to such a path succeeds, reports success, and produces a file
+no directory listing shows. Labels are validated rather than sanitised, so an
+unexpected value fails at the call site.
+
+**The live API does not match its published schema.** `/generation` returns a
+bare object where the specification promises an array. Both parsers normalise
+either form. Fixtures recorded from a specification cannot detect that the
+specification and the service disagree, which is what the daily contract check
+is for.
 
 ## Use
 
@@ -72,8 +87,9 @@ gridcast snapshot                                        # one capture
 gridcast backfill --start 2024-01-01 --end 2026-01-01    # historical actuals
 ```
 
-Backfill splits its range into fourteen-day windows, which is the maximum the
-range endpoint accepts.
+Backfill splits its range into fourteen-day windows, the maximum the range
+endpoint accepts. It recovers realised values only. Forecasts as issued cannot
+be recovered, for the reason given at the top.
 
 ## Tests
 
@@ -82,14 +98,13 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-Unit tests run against fixtures recorded from the documented response schemas,
-so the suite passes without network access. The network-marked tests check that
-the live API still returns the shape the parsers assume; they run in CI on a
-schedule rather than on every commit.
+The offline suite passes without network access. The network-marked tests check
+that the live API still returns the shape the parsers assume; they run daily
+rather than on every commit.
 
 ## Prior art
 
 [nmpowell/carbon-intensity-forecast-tracking](https://github.com/nmpowell/carbon-intensity-forecast-tracking)
 scrapes the same API on a schedule to compare forecasts against realised values.
-This repository takes the same starting point and goes on to model the residual
-and gate a candidate model on beating the published forecast.
+This repository starts from the same measurement problem; the intended addition
+is the learned correction and promotion gate described above.
