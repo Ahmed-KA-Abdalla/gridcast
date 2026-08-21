@@ -11,7 +11,10 @@ import datetime as dt
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
+from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
 from .schema import ValidationError, validate_generation, validate_intensity
 from .storage import DEFAULT_ROOT, write_snapshot
@@ -45,6 +48,13 @@ def snapshot(root: Path, client: CarbonIntensityClient | None = None) -> int:
             "forecast_fw48h",
             f"/intensity/{stamp}/fw48h",
             lambda: client.forecast_48h(captured_at),
+            parse_intensity,
+            validate_intensity,
+        ),
+        (
+            "outcomes_pt24h",
+            f"/intensity/{stamp}/pt24h",
+            lambda: client.past_24h(captured_at),
             parse_intensity,
             validate_intensity,
         ),
@@ -113,6 +123,41 @@ def backfill(
     return 0
 
 
+def report(root: Path) -> int:
+    """Print what the store holds and how the published forecast has scored.
+
+    Errors are broken down by lead time because a single average over all
+    horizons is close to meaningless: a forecast half an hour ahead and one
+    forty-eight hours ahead are different problems.
+    """
+    summary = coverage(root)
+    print(f"settled periods:   {summary['outcome_periods']}")
+    print(f"forecast rows:     {summary['forecast_rows']}")
+    print(f"distinct issues:   {summary['issues']}")
+    if "outcome_span" in summary:
+        start, end = summary["outcome_span"]
+        print(f"outcome span:      {start:%Y-%m-%d} to {end:%Y-%m-%d}")
+        print(f"periods missing:   {summary['outcome_missing']}")
+    if "max_horizon_hours" in summary:
+        print(f"longest lead:      {summary['max_horizon_hours']:.1f} h")
+
+    frame = evaluation_frame(root)
+    if frame.empty:
+        print("\nnothing scoreable yet: no forecast has a settled outcome")
+        return 0
+
+    bins = [0, 1, 3, 6, 12, 24, 48]
+    frame = frame.assign(bucket=pd.cut(frame["horizon_hours"], bins=bins, right=True))
+    scored = frame.groupby("bucket", observed=True).agg(
+        n=("abs_error", "size"),
+        mae=("abs_error", "mean"),
+        bias=("error", "mean"),
+    )
+    print("\npublished forecast error by lead time (gCO2/kWh)")
+    print(scored.round(2).to_string())
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -130,10 +175,14 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
     backfill_parser.add_argument("--start", type=_date, required=True, help="YYYY-MM-DD")
     backfill_parser.add_argument("--end", type=_date, required=True, help="YYYY-MM-DD")
 
+    sub.add_parser("report", help="summarise the store and score the published forecast")
+
     args = parser.parse_args(argv)
 
     if args.command == "snapshot":
         return snapshot(args.root, client=client)
+    if args.command == "report":
+        return report(args.root)
     return backfill(args.root, args.start, args.end, client=client)
 
 

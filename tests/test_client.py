@@ -115,3 +115,13 @@ def test_live_endpoint_matches_the_documented_shape():
     payload = CarbonIntensityClient().current_intensity()
     assert payload["data"]
     assert {"from", "to", "intensity"} <= set(payload["data"][0])
+
+
+@responses.activate
+def test_past_24h_builds_the_documented_path():
+    moment = dt.datetime(2026, 8, 20, 12, 35, tzinfo=UTC)
+    url = f"{BASE_URL}/intensity/2026-08-20T12:35Z/pt24h"
+    responses.add(responses.GET, url, json={"data": []}, status=200)
+
+    CarbonIntensityClient().past_24h(moment)
+    assert responses.calls[0].request.url == url

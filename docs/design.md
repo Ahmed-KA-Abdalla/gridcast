@@ -74,6 +74,13 @@ validation failures are caught per endpoint. The remaining endpoints are still
 captured and the process exits non-zero, so a run that captured two of three is
 visibly degraded rather than either silently partial or entirely lost.
 
+**Harvest outcomes with redundancy, not just the current period.** The first
+version of the capture step fetched only the period in progress alongside the
+forward forecast. That is one outcome per run against 96 forecast rows, and a
+period whose run was delayed or dropped is lost for good, since backfill of
+recent days is not indefinitely available. Each run now fetches the past 24
+hours, so every period is reported by 48 successive runs.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
@@ -92,6 +99,25 @@ benchmark at a stated lead time.
 
 Regional data are forecast-only: NESO publishes no realised regional intensity.
 Supervised work is therefore confined to the national series.
+
+## Assembling the record
+
+The loader produces three things. A forecast record of one row per period and
+issue time, built only from forward snapshots. An outcome record of one row per
+period, taking the observation with the latest capture time as final, since the
+API settles a value some minutes after a period ends and may revise it. An
+evaluation frame joining the two, with error signed as forecast minus outcome.
+
+Three decisions there are worth stating. Forecasts at non-positive lead time are
+dropped: the first period of a forward response is the one already in progress
+and is an observation, not a prediction. The forecast record carries no outcome
+column, so the outcome can only arrive through the join. And the exclusion of
+backfilled forecast values is enforced by a test rather than left to
+convention, because the failure it prevents is a leak that would improve every
+metric while invalidating all of them.
+
+Errors are reported bucketed by lead time. A single average across all horizons
+conflates a half-hour-ahead problem with a forty-eight-hour-ahead one.
 
 ## Next
 

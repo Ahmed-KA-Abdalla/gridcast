@@ -17,13 +17,12 @@ modelling exists yet; the current state is below.
 ## Status
 
 Built: the API client, the parsers, schema validation, raw snapshot storage, the
-command-line interface, the scheduled capture workflow, and a daily contract
-check against the live API.
+command-line interface, the scheduled capture workflow, a daily contract check
+against the live API, and the loader that joins issued forecasts to the outcomes
+they were forecasting.
 
-Not built: the joined forecast-to-outcome dataset, feature construction, the
-baseline and candidate models, the promotion gate, drift monitoring, and the
-published evaluation report. No accuracy figures are reported anywhere in this
-repository because none have been computed.
+Not built: feature construction, the baseline and candidate models, the
+promotion gate, drift monitoring, and the published evaluation report.
 
 ## Data
 
@@ -38,6 +37,7 @@ Three endpoints are captured every half hour:
 | --- | --- |
 | `/intensity` | The period in progress |
 | `/intensity/{from}/fw48h` | The forecast as issued, out to 48 hours |
+| `/intensity/{from}/pt24h` | Realised values for the past 24 hours |
 | `/generation` | Fuel shares for the period in progress |
 
 Raw responses are written verbatim under `data/raw/YYYY/MM/DD/`, each wrapped in
@@ -59,6 +59,19 @@ and holding it in git means the whole thing can be reproduced by cloning.
 a `horizon_hours` lead time. Without them a forecast is indistinguishable from a
 later revision of itself, which makes accuracy by lead time unmeasurable and
 makes any model trained on revised forecasts subject to leakage.
+
+**Outcomes are harvested with redundancy.** Each run captures the past 24 hours
+rather than only the period in progress. A settled value is published some
+minutes after its period ends, so a run asking only about the present loses any
+period whose run was delayed or dropped, and loses it permanently. Capturing the
+past day means a period is reported by 48 successive runs.
+
+**Only forecasts captured at issue time count as forecasts.** The `forecast`
+field of a historical range response is a revised value, produced with
+information unavailable at the lead time it appears to belong to. The loader
+builds its forecast record exclusively from `forecast_fw48h` snapshots and
+tests that the exclusion holds. Using the revised field would leak the outcome
+into the predictor without disturbing any metric.
 
 **Half-hour positions are UTC, not settlement periods.** GB settlement periods
 are numbered against the local clock day, which has 46 or 50 of them at the
@@ -85,6 +98,7 @@ pip install -e ".[dev]"
 
 gridcast snapshot                                        # one capture
 gridcast backfill --start 2024-01-01 --end 2026-01-01    # historical actuals
+gridcast report                                          # score what is stored
 ```
 
 Backfill splits its range into fourteen-day windows, the maximum the range

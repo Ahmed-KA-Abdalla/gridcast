@@ -113,6 +113,16 @@ class CarbonIntensityClient:
         """
         return self._get(f"/intensity/{format_timestamp(start)}/fw48h")
 
+    def past_24h(self, start: dt.datetime) -> dict:
+        """Intensity for the 24 hours preceding ``start``.
+
+        Captured every run rather than only the period in progress. A settled
+        value is published some minutes after a period ends, so a run that asked
+        only about the present would miss any period whose run was delayed or
+        dropped, and would lose it permanently.
+        """
+        return self._get(f"/intensity/{format_timestamp(start)}/pt24h")
+
     def intensity_range(self, start: dt.datetime, end: dt.datetime) -> dict:
         """Intensity between two datetimes, at most fourteen days apart."""
         if end - start > MAX_RANGE:

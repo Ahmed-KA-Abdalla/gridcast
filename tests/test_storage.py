@@ -20,6 +20,7 @@ UTC = dt.UTC
 CAPTURED = dt.datetime(2026, 8, 20, 12, 5, tzinfo=UTC)
 
 FORECAST_URL = re.compile(rf"{re.escape(BASE_URL)}/intensity/.+/fw48h")
+PAST_URL = re.compile(rf"{re.escape(BASE_URL)}/intensity/.+/pt24h")
 
 INTENSITY_PAYLOAD = {
     "data": [
@@ -136,18 +137,20 @@ def test_iter_snapshots_filters_by_kind_and_orders_by_time(tmp_path):
 def test_snapshot_command_writes_all_three_endpoints(tmp_path, impatient_client):
     responses.add(responses.GET, f"{BASE_URL}/intensity", json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, FORECAST_URL, json=INTENSITY_PAYLOAD, status=200)
+    responses.add(responses.GET, PAST_URL, json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, f"{BASE_URL}/generation", json=GENERATION_PAYLOAD, status=200)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 0
 
     stored = sorted(read_snapshot(path)[1] for path in iter_snapshots(tmp_path))
-    assert stored == ["forecast_fw48h", "generation", "intensity"]
+    assert stored == ["forecast_fw48h", "generation", "intensity", "outcomes_pt24h"]
 
 
 @responses.activate
 def test_snapshot_command_reports_failure_without_writing(tmp_path, impatient_client):
     responses.add(responses.GET, f"{BASE_URL}/intensity", status=500)
     responses.add(responses.GET, FORECAST_URL, status=500)
+    responses.add(responses.GET, PAST_URL, status=500)
     responses.add(responses.GET, f"{BASE_URL}/generation", status=500)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 1
@@ -167,24 +170,26 @@ def test_snapshot_command_rejects_a_payload_that_fails_validation(tmp_path, impa
     }
     responses.add(responses.GET, f"{BASE_URL}/intensity", json=broken, status=200)
     responses.add(responses.GET, FORECAST_URL, json=INTENSITY_PAYLOAD, status=200)
+    responses.add(responses.GET, PAST_URL, json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, f"{BASE_URL}/generation", json=GENERATION_PAYLOAD, status=200)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 1
-    # The two sound endpoints are still stored; only the offending one is dropped.
+    # The sound endpoints are still stored; only the offending one is dropped.
     stored = sorted(read_snapshot(path)[1] for path in iter_snapshots(tmp_path))
-    assert stored == ["forecast_fw48h", "generation"]
+    assert stored == ["forecast_fw48h", "generation", "outcomes_pt24h"]
 
 
 @responses.activate
 def test_snapshot_command_survives_a_payload_of_the_wrong_shape(tmp_path, impatient_client):
     responses.add(responses.GET, f"{BASE_URL}/intensity", json={"data": "unexpected"}, status=200)
     responses.add(responses.GET, FORECAST_URL, json=INTENSITY_PAYLOAD, status=200)
+    responses.add(responses.GET, PAST_URL, json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, f"{BASE_URL}/generation", json=GENERATION_PAYLOAD, status=200)
 
     # A malformed payload must be reported, not raised out of the process: one
     # bad endpoint should not cost the run the other two.
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 1
-    assert len(list(iter_snapshots(tmp_path))) == 2
+    assert len(list(iter_snapshots(tmp_path))) == 3
 
 
 @responses.activate
