@@ -1,0 +1,52 @@
+{
+ "captured_at": "2026-08-22T14:21:18.515419+00:00",
+ "endpoint": "/generation",
+ "envelope_version": 2,
+ "kind": "generation",
+ "licence": "CC BY 4.0",
+ "payload": {
+  "data": {
+   "from": "2026-08-22T13:30Z",
+   "generationmix": [
+    {
+     "fuel": "biomass",
+     "perc": 5.1
+    },
+    {
+     "fuel": "coal",
+     "perc": 0
+    },
+    {
+     "fuel": "imports",
+     "perc": 25.2
+    },
+    {
+     "fuel": "gas",
+     "perc": 5.1
+    },
+    {
+     "fuel": "nuclear",
+     "perc": 16.4
+    },
+    {
+     "fuel": "other",
+     "perc": 2.3
+    },
+    {
+     "fuel": "hydro",
+     "perc": 0.3
+    },
+    {
+     "fuel": "solar",
+     "perc": 28.5
+    },
+    {
+     "fuel": "wind",
+     "perc": 17
+    }
+   ],
+   "to": "2026-08-22T14:00Z"
+  }
+ },
+ "source": "NESO Carbon Intensity API"
+}
