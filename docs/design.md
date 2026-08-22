@@ -81,6 +81,31 @@ period whose run was delayed or dropped is lost for good, since backfill of
 recent days is not indefinitely available. Each run now fetches the past 24
 hours, so every period is reported by 48 successive runs.
 
+## Baselines and scoring
+
+Two seasonal baselines: the value at the same half-hour of the most recent
+available same weekday, and the mean across three such weeks. Both fall back
+through lags of 7, 14 and 21 days, so a gap in the record costs a longer lag
+rather than a missing prediction. Which is harder to beat is an empirical
+question, which is why both exist.
+
+Two evaluations, answering different questions. A seasonal prediction does not
+depend on lead time, so it can be scored over every period ever observed, which
+yields a usable number immediately. The published forecast can be scored only
+where it was captured. Reporting one in place of the other would flatter
+whichever is favoured by the difference in sample, so both are printed and
+labelled.
+
+Availability had to be defined carefully. The first implementation asked whether
+a reference observation had been captured before the moment of prediction. That
+is wrong for backfilled data: a backfill run stamps two years of settled history
+with today's capture time, so every historical reference would have been treated
+as unknown to any forecast issued earlier, and the matched comparison would have
+scored nothing at all while appearing to work. Availability is now decided by
+period timing — a period is knowable once it has ended and a one-hour settlement
+allowance has passed — which is a property of the data rather than of this
+project's fetch history.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

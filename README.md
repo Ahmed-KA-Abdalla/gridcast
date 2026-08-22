@@ -18,11 +18,11 @@ modelling exists yet; the current state is below.
 
 Built: the API client, the parsers, schema validation, raw snapshot storage, the
 command-line interface, the scheduled capture workflow, a daily contract check
-against the live API, and the loader that joins issued forecasts to the outcomes
-they were forecasting.
+against the live API, the loader that joins issued forecasts to the outcomes
+they were forecasting, two seasonal baselines, and the scoring harness.
 
-Not built: feature construction, the baseline and candidate models, the
-promotion gate, drift monitoring, and the published evaluation report.
+Not built: feature construction, the candidate model, the promotion gate, drift
+monitoring, and the published evaluation report.
 
 ## Data
 
@@ -66,6 +66,13 @@ minutes after its period ends, so a run asking only about the present loses any
 period whose run was delayed or dropped, and loses it permanently. Capturing the
 past day means a period is reported by 48 successive runs.
 
+**Availability is decided by when a value could have been known.** A backfilled
+observation carries the capture time of the backfill run, which is today. Using
+that as the test of what a prediction may see would declare two years of settled
+history unavailable to any forecast issued before the backfill, and the matched
+comparison would silently score nothing. A period is instead treated as
+available once it has ended and a one-hour settlement allowance has passed.
+
 **Only forecasts captured at issue time count as forecasts.** The `forecast`
 field of a historical range response is a revised value, produced with
 information unavailable at the lead time it appears to belong to. The loader
@@ -99,6 +106,7 @@ pip install -e ".[dev]"
 gridcast snapshot                                        # one capture
 gridcast backfill --start 2024-01-01 --end 2026-01-01    # historical actuals
 gridcast report                                          # score what is stored
+gridcast compare                                         # forecast against baselines
 ```
 
 Backfill splits its range into fourteen-day windows, the maximum the range
