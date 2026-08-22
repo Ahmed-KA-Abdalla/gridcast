@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
+from .evaluate import backtest_baselines, compare_at_matched_leads
 from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
 from .schema import ValidationError, validate_generation, validate_intensity
@@ -158,6 +159,32 @@ def report(root: Path) -> int:
     return 0
 
 
+def compare(root: Path) -> int:
+    """Score the published forecast against the seasonal baselines.
+
+    Two tables, answering different questions. The backtest covers every period
+    ever observed, which a seasonal prediction can do because it does not depend
+    on lead time. The matched comparison covers only periods where a forecast
+    was captured, which is the sample that permits a head-to-head.
+    """
+    backtest = backtest_baselines(root)
+    if backtest.empty:
+        print("no outcomes stored")
+        return 0
+
+    print("baselines over the whole outcome record (gCO2/kWh)")
+    print(backtest.round(2).to_string())
+
+    matched = compare_at_matched_leads(root)
+    if matched.empty:
+        print("\nno rows where a captured forecast and a computable baseline coincide")
+        return 0
+
+    print("\npublished forecast against the baselines, matched rows only")
+    print(matched.round(2).to_string())
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -176,6 +203,7 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
     backfill_parser.add_argument("--end", type=_date, required=True, help="YYYY-MM-DD")
 
     sub.add_parser("report", help="summarise the store and score the published forecast")
+    sub.add_parser("compare", help="score the published forecast against the baselines")
 
     args = parser.parse_args(argv)
 
@@ -183,6 +211,8 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return snapshot(args.root, client=client)
     if args.command == "report":
         return report(args.root)
+    if args.command == "compare":
+        return compare(args.root)
     return backfill(args.root, args.start, args.end, client=client)
 
 
