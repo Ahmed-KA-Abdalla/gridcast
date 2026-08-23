@@ -66,6 +66,13 @@ def snapshot(root: Path, client: CarbonIntensityClient | None = None) -> int:
             parse_generation,
             validate_generation,
         ),
+        (
+            "generation_pt24h",
+            f"/generation/{format_timestamp(captured_at - dt.timedelta(hours=24))}/{stamp}",
+            lambda: client.generation_range(captured_at - dt.timedelta(hours=24), captured_at),
+            parse_generation,
+            validate_generation,
+        ),
     )
 
     failures = 0

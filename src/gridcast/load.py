@@ -40,7 +40,11 @@ FORECAST_FAMILIES = frozenset({"forecast_fw48h"})
 #: plausible run of dropped schedules.
 OUTCOME_FAMILIES = frozenset({"intensity", "intensity_range", "outcomes_pt24h"})
 
-GENERATION_FAMILIES = frozenset({"generation", "generation_range"})
+#: ``generation_pt24h`` is the working source, for the same reason
+#: ``outcomes_pt24h`` is for intensity: ``/generation`` reports only the period
+#: in progress, so a run captures one mix period while the schedule advances by
+#: two or three, and the difference is lost permanently.
+GENERATION_FAMILIES = frozenset({"generation", "generation_range", "generation_pt24h"})
 
 
 def kind_family(kind: str) -> str:

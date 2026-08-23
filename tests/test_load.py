@@ -275,3 +275,34 @@ def test_a_later_pt24h_capture_supersedes_an_earlier_one(tmp_path):
         root=tmp_path,
     )
     assert outcome_record(tmp_path)["actual"].tolist() == [191.0]
+
+
+def test_generation_from_the_past_24h_capture_is_used(tmp_path):
+    # The mix needs the same redundancy as intensity: /generation reports only
+    # the period in progress, so a run captures one mix period while the
+    # schedule advances by two or three.
+    from gridcast.load import generation_record
+
+    payload = {
+        "data": [
+            {
+                "from": period(offset),
+                "to": period(offset + 1),
+                "generationmix": [
+                    {"fuel": "gas", "perc": 55.0},
+                    {"fuel": "wind", "perc": 45.0},
+                ],
+            }
+            for offset in range(3)
+        ]
+    }
+    write_snapshot(
+        payload,
+        "generation_pt24h",
+        "/generation/2026-08-19T14:00Z/2026-08-20T14:00Z",
+        BASE + dt.timedelta(hours=2),
+        root=tmp_path,
+    )
+    frame = generation_record(tmp_path)
+    assert len(frame) == 3
+    assert frame["gas"].tolist() == [55.0, 55.0, 55.0]

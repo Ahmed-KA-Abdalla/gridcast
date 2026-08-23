@@ -21,6 +21,7 @@ CAPTURED = dt.datetime(2026, 8, 20, 12, 5, tzinfo=UTC)
 
 FORECAST_URL = re.compile(rf"{re.escape(BASE_URL)}/intensity/.+/fw48h")
 PAST_URL = re.compile(rf"{re.escape(BASE_URL)}/intensity/.+/pt24h")
+GENERATION_RANGE_URL = re.compile(rf"{re.escape(BASE_URL)}/generation/.+/.+")
 
 INTENSITY_PAYLOAD = {
     "data": [
@@ -138,12 +139,19 @@ def test_snapshot_command_writes_all_three_endpoints(tmp_path, impatient_client)
     responses.add(responses.GET, f"{BASE_URL}/intensity", json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, FORECAST_URL, json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, PAST_URL, json=INTENSITY_PAYLOAD, status=200)
+    responses.add(responses.GET, GENERATION_RANGE_URL, json=GENERATION_PAYLOAD, status=200)
     responses.add(responses.GET, f"{BASE_URL}/generation", json=GENERATION_PAYLOAD, status=200)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 0
 
     stored = sorted(read_snapshot(path)[1] for path in iter_snapshots(tmp_path))
-    assert stored == ["forecast_fw48h", "generation", "intensity", "outcomes_pt24h"]
+    assert stored == [
+        "forecast_fw48h",
+        "generation",
+        "generation_pt24h",
+        "intensity",
+        "outcomes_pt24h",
+    ]
 
 
 @responses.activate
@@ -151,6 +159,7 @@ def test_snapshot_command_reports_failure_without_writing(tmp_path, impatient_cl
     responses.add(responses.GET, f"{BASE_URL}/intensity", status=500)
     responses.add(responses.GET, FORECAST_URL, status=500)
     responses.add(responses.GET, PAST_URL, status=500)
+    responses.add(responses.GET, GENERATION_RANGE_URL, status=500)
     responses.add(responses.GET, f"{BASE_URL}/generation", status=500)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 1
@@ -171,12 +180,13 @@ def test_snapshot_command_rejects_a_payload_that_fails_validation(tmp_path, impa
     responses.add(responses.GET, f"{BASE_URL}/intensity", json=broken, status=200)
     responses.add(responses.GET, FORECAST_URL, json=INTENSITY_PAYLOAD, status=200)
     responses.add(responses.GET, PAST_URL, json=INTENSITY_PAYLOAD, status=200)
+    responses.add(responses.GET, GENERATION_RANGE_URL, json=GENERATION_PAYLOAD, status=200)
     responses.add(responses.GET, f"{BASE_URL}/generation", json=GENERATION_PAYLOAD, status=200)
 
     assert main(["--root", str(tmp_path), "snapshot"], client=impatient_client) == 1
     # The sound endpoints are still stored; only the offending one is dropped.
     stored = sorted(read_snapshot(path)[1] for path in iter_snapshots(tmp_path))
-    assert stored == ["forecast_fw48h", "generation", "outcomes_pt24h"]
+    assert stored == ["forecast_fw48h", "generation", "generation_pt24h", "outcomes_pt24h"]
 
 
 @responses.activate
