@@ -106,6 +106,42 @@ period timing — a period is knowable once it has ended and a one-hour settleme
 allowance has passed — which is a property of the data rather than of this
 project's fetch history.
 
+## Features
+
+Every feature is computed as of an explicit issue time, and the training set is
+the cross product of observed periods with nine hypothetical lead times from
+half an hour to forty-eight. A single "recent intensity" column applied without
+regard to lead would be using tomorrow's data to predict tomorrow.
+
+Calendar position is encoded as sine and cosine pairs on the daily and annual
+cycles, so that 23:30 and 00:00 are adjacent rather than maximally distant. The
+daily cycle is taken in local clock time, which is what drives demand behaviour,
+while the index remains UTC.
+
+The most recent knowable intensity and fuel mix come from a backward as-of join
+on the settlement time. One expectation was wrong here and the measurement
+corrected it: the staleness of that observation, measured from the issue time,
+was assumed to grow with lead time and does not. There is almost always an
+observation that has just become knowable, so staleness sits at the settlement
+allowance regardless of lead. It is retained because its exceptions are
+informative — it rises above the floor exactly where the record has a gap — but
+not for the reason it was added.
+
+**The generation mix needed the same redundancy as intensity, and did not get it
+at first.** The day-two fix added a past-24-hour fetch for intensity but left
+generation fetching only the period in progress. With the scheduler delivering
+about 60% of nominal runs, that lost two or three mix periods for every one
+captured. It surfaced when the fuel-mix features came out missing at 2.55%
+against 0.07% for intensity — a discrepancy too large to be scattered gaps. The
+lesson is narrow but worth recording: a fix applied to one path in a
+multi-endpoint capture is not a fix.
+
+The same investigation turned up a genuine source characteristic. The mix is
+absent for roughly the first twelve days of January in both 2025 and 2026, in
+contiguous blocks starting within half an hour of the new year, while intensity
+continues uninterrupted. Two occurrences at the same calendar position are not
+coincidence, but the cause is on NESO's side and nothing here can recover it.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

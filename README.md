@@ -19,10 +19,11 @@ modelling exists yet; the current state is below.
 Built: the API client, the parsers, schema validation, raw snapshot storage, the
 command-line interface, the scheduled capture workflow, a daily contract check
 against the live API, the loader that joins issued forecasts to the outcomes
-they were forecasting, two seasonal baselines, and the scoring harness.
+they were forecasting, two seasonal baselines, the scoring harness, and feature
+construction.
 
-Not built: feature construction, the candidate model, the promotion gate, drift
-monitoring, and the published evaluation report.
+Not built: the candidate model, the promotion gate, drift monitoring, and the
+published evaluation report.
 
 ## Data
 
@@ -39,6 +40,7 @@ Three endpoints are captured every half hour:
 | `/intensity/{from}/fw48h` | The forecast as issued, out to 48 hours |
 | `/intensity/{from}/pt24h` | Realised values for the past 24 hours |
 | `/generation` | Fuel shares for the period in progress |
+| `/generation/{from}/{to}` | Fuel shares for the past 24 hours |
 
 Raw responses are written verbatim under `data/raw/YYYY/MM/DD/`, each wrapped in
 an envelope recording the endpoint requested and the time the response arrived.
@@ -61,10 +63,12 @@ later revision of itself, which makes accuracy by lead time unmeasurable and
 makes any model trained on revised forecasts subject to leakage.
 
 **Outcomes are harvested with redundancy.** Each run captures the past 24 hours
-rather than only the period in progress. A settled value is published some
-minutes after its period ends, so a run asking only about the present loses any
-period whose run was delayed or dropped, and loses it permanently. Capturing the
-past day means a period is reported by 48 successive runs.
+of both intensity and generation mix, rather than only the period in progress.
+A run asking only about the present loses any period whose run was delayed or
+dropped, and loses it permanently. Since the scheduler delivers roughly 60% of
+its nominal half-hourly runs, that is a continuous loss rather than an
+occasional one. Capturing the past day means a period is reported by 48
+successive runs.
 
 **Availability is decided by when a value could have been known.** A backfilled
 observation carries the capture time of the backfill run, which is today. Using
@@ -72,6 +76,14 @@ that as the test of what a prediction may see would declare two years of settled
 history unavailable to any forecast issued before the backfill, and the matched
 comparison would silently score nothing. A period is instead treated as
 available once it has ended and a one-hour settlement allowance has passed.
+
+**The unit of prediction is a period and an issue time, not a period.** A
+prediction thirty minutes ahead may lean on an observation made an hour ago; one
+forty-eight hours ahead may not. The training set is therefore the cross product
+of observed periods with a set of hypothetical lead times, features recomputed
+at each, so that no row sees anything that did not exist when its prediction was
+supposedly made. Rows sharing a period are correlated, so validation splits by
+date rather than by row.
 
 **Only forecasts captured at issue time count as forecasts.** The `forecast`
 field of a historical range response is a revised value, produced with
@@ -123,6 +135,21 @@ pytest -m network           # exercises the live API
 The offline suite passes without network access. The network-marked tests check
 that the live API still returns the shape the parsers assume; they run daily
 rather than on every commit.
+
+## Known gaps in the record
+
+A single 16-hour outage in the intensity series on 12 June 2024. Everything else
+is continuous from 31 December 2023.
+
+The generation mix is absent for roughly the first twelve days of January in
+both 2025 and 2026 — contiguous blocks beginning within half an hour of the new
+year, while the intensity series continues uninterrupted. Two occurrences at the
+same calendar position suggest a property of the source rather than a fetch
+fault. Any evaluation over a January must be conditioned on it.
+
+Gaps are recorded, never interpolated. A fabricated observation cannot be
+distinguished from a real one downstream, and a model trained partly on invented
+data cannot be evaluated honestly.
 
 ## Prior art
 
