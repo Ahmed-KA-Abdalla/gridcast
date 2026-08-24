@@ -23,8 +23,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .baseline import add_baselines
-from .load import evaluation_frame, outcome_record
+from .baseline import add_baselines, seasonal_mean, seasonal_naive
+from .load import evaluation_frame, forecast_record, outcome_record
+from .scheduling import (
+    Load,
+    baseline_forecasts,
+    evaluate_decisions,
+    issue_times,
+    summarise,
+)
 from .storage import DEFAULT_ROOT
 
 #: Lead-time buckets in hours. Uneven by design: forecast error grows fastest in
@@ -126,3 +133,49 @@ def skill(candidate: dict[str, float], reference: dict[str, float]) -> float:
     if not reference.get("n") or not np.isfinite(reference.get("mae", np.nan)):
         return np.nan
     return 1.0 - candidate["mae"] / reference["mae"]
+
+
+def compare_schedulers(root: Path = DEFAULT_ROOT, load: Load | None = None) -> pd.DataFrame:
+    """Score the published forecast and the baselines as schedulers.
+
+    Three rows, and the first two are the comparison. ``published`` and the
+    ``_matched`` baselines are scored on the same decisions: the issue times
+    where a forward snapshot was captured. Differences between those rows are
+    differences between the forecasters.
+
+    The remaining rows score the baselines across the whole settled record.
+    They are a much larger sample and they are not comparable with the first
+    two: the captured decisions come from a few weeks of one season, so the
+    windows differ in how much saving was available in the first place. An
+    earlier version of this function omitted the matched rows, and the
+    difference in available spread was large enough to reverse the ranking.
+    """
+    load = load or Load()
+    outcomes = outcome_record(root)
+    if outcomes.empty:
+        return pd.DataFrame()
+
+    rows: dict[str, dict[str, float]] = {}
+    baselines = (("seasonal_naive", seasonal_naive), ("seasonal_mean", seasonal_mean))
+
+    published = forecast_record(root)
+    if not published.empty:
+        decisions = evaluate_decisions(published, outcomes, load)
+        rows["published"] = summarise(decisions)
+
+        # The same issue times, so the baselines face the same windows.
+        if not decisions.empty:
+            issues = pd.DatetimeIndex(decisions["captured_at"])
+            windows = pd.DatetimeIndex(decisions["window_start"])
+            for name, predictor in baselines:
+                forecasts = baseline_forecasts(
+                    outcomes, load, predictor, issues, window_starts=windows
+                )
+                rows[f"{name}_matched"] = summarise(evaluate_decisions(forecasts, outcomes, load))
+
+    moments = issue_times(outcomes, load)
+    for name, predictor in baselines:
+        forecasts = baseline_forecasts(outcomes, load, predictor, moments)
+        rows[f"{name}_full"] = summarise(evaluate_decisions(forecasts, outcomes, load))
+
+    return pd.DataFrame(rows).T

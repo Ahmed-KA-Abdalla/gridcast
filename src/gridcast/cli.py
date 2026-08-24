@@ -14,9 +14,10 @@ from pathlib import Path
 import pandas as pd
 
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
-from .evaluate import backtest_baselines, compare_at_matched_leads
+from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
+from .scheduling import Load
 from .schema import ValidationError, validate_generation, validate_intensity
 from .storage import DEFAULT_ROOT, write_snapshot
 
@@ -192,6 +193,31 @@ def compare(root: Path) -> int:
     return 0
 
 
+def schedule(root: Path, load: Load) -> int:
+    """Score forecasts by the scheduling decisions they produce.
+
+    Regret is the excess emissions of the periods chosen over the periods
+    hindsight would have chosen. ``captured_fraction`` normalises it by what was
+    available to be saved, since on a flat day no choice is much worse than any
+    other and an unnormalised figure would flatter any scheduler.
+    """
+    scored = compare_schedulers(root, load)
+    if scored.empty:
+        print("no settled outcomes to schedule against")
+        return 0
+
+    print(f"decision: {load.describe()}")
+    print("all figures gCO2/kWh averaged over the load\n")
+    print(scored.round(3).to_string())
+    print(
+        "\nRead the first rows together: 'published' and the '_matched' baselines "
+        "face\nthe same decisions, so differences between them are differences "
+        "between\nforecasters. The '_full' rows cover the whole record and are a "
+        "different\nsample — compare mean_available before comparing anything else."
+    )
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -212,6 +238,17 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
     sub.add_parser("report", help="summarise the store and score the published forecast")
     sub.add_parser("compare", help="score the published forecast against the baselines")
 
+    schedule_parser = sub.add_parser("schedule", help="score forecasts by decision quality")
+    schedule_parser.add_argument(
+        "--periods", type=int, default=4, help="half-hours the load occupies"
+    )
+    schedule_parser.add_argument(
+        "--window", type=float, default=24.0, help="hours within which it must run"
+    )
+    schedule_parser.add_argument(
+        "--interruptible", action="store_true", help="allow the load to be split across the window"
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "snapshot":
@@ -220,6 +257,15 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return report(args.root)
     if args.command == "compare":
         return compare(args.root)
+    if args.command == "schedule":
+        return schedule(
+            args.root,
+            Load(
+                periods=args.periods,
+                window_hours=args.window,
+                contiguous=not args.interruptible,
+            ),
+        )
     return backfill(args.root, args.start, args.end, client=client)
 
 

@@ -161,3 +161,98 @@ def test_compare_command_says_so_on_an_empty_store(tmp_path, capsys):
 
     assert main(["--root", str(tmp_path), "compare"]) == 0
     assert "no outcomes stored" in capsys.readouterr().out
+
+
+def test_compare_schedulers_scores_the_baselines_over_the_record(store):
+    from gridcast.evaluate import compare_schedulers
+    from gridcast.scheduling import Load
+
+    scored = compare_schedulers(store, Load(periods=1, window_hours=1.0))
+    assert {"seasonal_naive_full", "seasonal_mean_full"} <= set(scored.index)
+
+
+@pytest.fixture
+def schedulable_store(tmp_path):
+    """A store with enough settled history for a decision to be scoreable."""
+    start = dt.datetime(2026, 6, 1, tzinfo=UTC)
+    count = 48 * 40  # forty days of half-hours
+    history = []
+    for step in range(count):
+        moment = start + dt.timedelta(minutes=30 * step)
+        # A daily cycle, so windows have real spread and no ties.
+        value = 200.0 + 60.0 * ((step % 48) - 24) / 24.0
+        history.append(
+            (
+                moment.strftime("%Y-%m-%dT%H:%MZ"),
+                (moment + dt.timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%MZ"),
+                value,
+                value,
+            )
+        )
+    write_snapshot(
+        intensity_payload(history),
+        "intensity_range_20260601",
+        "/intensity/range",
+        start + dt.timedelta(days=41),
+        root=tmp_path,
+    )
+
+    # A forward forecast issued partway through, covering the next six hours.
+    issue = start + dt.timedelta(days=35)
+    forward = [
+        entry
+        for entry in history
+        if issue
+        <= dt.datetime.strptime(entry[0], "%Y-%m-%dT%H:%MZ").replace(tzinfo=UTC)
+        < issue + dt.timedelta(hours=6)
+    ]
+    write_snapshot(
+        intensity_payload(forward),
+        "forecast_fw48h",
+        "/intensity/issue/fw48h",
+        issue - dt.timedelta(minutes=30),
+        root=tmp_path,
+    )
+    return tmp_path
+
+
+def test_matched_rows_face_the_same_decisions_as_the_published_forecast(schedulable_store):
+    # The comparison the table exists to support. Without these rows the
+    # published forecast is scored on a few weeks of one season while the
+    # baselines are scored across years, and the difference in how much saving
+    # was available can reverse the ranking.
+    from gridcast.evaluate import compare_schedulers
+    from gridcast.scheduling import Load
+
+    scored = compare_schedulers(schedulable_store, Load(periods=2, window_hours=5.0))
+
+    assert scored.loc["published", "n"] > 0
+    assert "seasonal_mean_matched" in scored.index
+    assert scored.loc["published", "n"] == scored.loc["seasonal_mean_matched", "n"]
+    # The decisive property: the same windows, so the same amount was at stake.
+    assert scored.loc["published", "mean_available"] == pytest.approx(
+        scored.loc["seasonal_mean_matched", "mean_available"]
+    )
+
+
+def test_full_record_rows_are_a_larger_and_different_sample(schedulable_store):
+    from gridcast.evaluate import compare_schedulers
+    from gridcast.scheduling import Load
+
+    scored = compare_schedulers(schedulable_store, Load(periods=2, window_hours=5.0))
+    assert scored.loc["seasonal_mean_full", "n"] > scored.loc["seasonal_mean_matched", "n"]
+
+
+def test_schedule_command_reports_the_sample_difference(store, capsys):
+    from gridcast.cli import main
+
+    assert main(["--root", str(store), "schedule", "--periods", "1", "--window", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "mean_available" in out
+
+
+def test_schedule_command_says_so_on_an_empty_store(tmp_path, capsys):
+    from gridcast.cli import main
+
+    assert main(["--root", str(tmp_path), "schedule"]) == 0
+    assert "no settled outcomes" in capsys.readouterr().out
