@@ -10,15 +10,17 @@ be measured after the fact from the API alone. This repository records each
 forecast at the moment it is issued and records the realised value when it
 settles, so that the two can later be scored against each other.
 
-Nobody consumes carbon intensity for its own sake; it is used to decide when to run something. The question this project asks is therefore not how accurate the forecast is, but how good the decisions it produces are. A forecast that is uniformly too high changes no rankings and schedules perfectly; one with small errors that inverts two adjacent windows schedules badly. Only the ordering matters, and mean error does not measure ordering. The intended work is to quantify that gap. None of it exists yet; the current state is below.
+The intended addition is a learned correction to the published forecast,
+promoted into use only when it beats that forecast out of sample. None of the
+modelling exists yet; the current state is below.
 
 ## Status
 
 Built: the API client, the parsers, schema validation, raw snapshot storage, the
 command-line interface, the scheduled capture workflow, a daily contract check
 against the live API, the loader that joins issued forecasts to the outcomes
-they were forecasting, two seasonal baselines, the scoring harness, and feature
-construction.
+they were forecasting, two seasonal baselines, the scoring harness, feature
+construction, and the scheduling and regret evaluation.
 
 Not built: the candidate model, the promotion gate, drift monitoring, and the
 published evaluation report.
@@ -117,6 +119,7 @@ gridcast snapshot                                        # one capture
 gridcast backfill --start 2024-01-01 --end 2026-01-01    # historical actuals
 gridcast report                                          # score what is stored
 gridcast compare                                         # forecast against baselines
+gridcast schedule --periods 4 --window 24                # score decision quality
 ```
 
 Backfill splits its range into fourteen-day windows, the maximum the range
@@ -133,6 +136,28 @@ pytest -m network           # exercises the live API
 The offline suite passes without network access. The network-marked tests check
 that the live API still returns the shape the parsers assume; they run daily
 rather than on every commit.
+
+## Decision quality
+
+`gridcast schedule` poses a concrete decision: a deferrable load of a given
+length must run within a given window, and the scheduler picks the periods a
+forecast says are cheapest. Four outcomes are costed against what actually
+happened — the choice made, the choice hindsight would have made, the worst
+choice available, and running immediately without deferring at all.
+
+Regret is the excess of the first over the second. Reported alone it misleads,
+because on a flat day no choice is much worse than any other and a windless week
+would flatter any scheduler. It is normalised by the saving that was available,
+giving the fraction of the achievable benefit the forecast secured.
+
+The table has three kinds of row. `published` and the `_matched` baselines face
+the same decisions — the issue times where a forward snapshot was captured, and
+the same windows — so differences between those rows are differences between
+forecasters. The `_full` rows score the baselines across the whole settled
+record: a much larger sample, and not comparable with the first two, because the
+captured decisions come from a few weeks of one season and the windows differ in
+how much saving was available at all. Compare `mean_available` before comparing
+anything else.
 
 ## Known gaps in the record
 

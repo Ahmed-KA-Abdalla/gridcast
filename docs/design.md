@@ -142,6 +142,38 @@ contiguous blocks starting within half an hour of the new year, while intensity
 continues uninterrupted. Two occurrences at the same calendar position are not
 coincidence, but the cause is on NESO's side and nothing here can recover it.
 
+## Scheduling and regret
+
+The decision, not the prediction, is the unit of evaluation. Four choices are
+costed for each: the forecast's, hindsight's, the worst available, and running
+immediately. All four are costed against realised intensity, because what a
+choice was expected to cost is not what it cost.
+
+Three decisions in the design. Regret is normalised by the available spread,
+since an unnormalised figure rewards a scheduler for calm weather rather than
+for judgement. Decisions whose window is flat are excluded and counted rather
+than scored as successes, for the same reason. And a decision whose window has
+a gap in the settled record is skipped rather than interpolated: a scheduler
+scored on invented observations cannot be falsified.
+
+Baselines are scored twice: once on the decisions the captured forecasts faced,
+and once across the whole record. The first version reported only the second and
+set it beside the published forecast, which is not a comparison — the captured
+decisions come from a few weeks of one season, and on a six-hour window the
+difference in available spread was large enough to reverse the ranking and make
+a weekly average appear to beat a production forecast. Aligning the samples
+required aligning the windows as well as the issue times, since a captured
+forecast is issued partway through a period and its window begins at the next
+one; matching on the issue minute alone shifted the baseline half an hour.
+
+An earlier claim in this project's planning was wrong and is corrected here.
+Regret against the published forecast is not computable over the historical
+record, because a decision needs the forecast as it stood at the issue moment
+and the only source of that is the captured forward snapshots. The revised
+forecast field in a backfilled range response cannot serve, for the same reason
+it cannot serve as a benchmark. Baselines are unaffected, since they can be
+evaluated at any past moment, so the two are reported on separate samples.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
