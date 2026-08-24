@@ -10,9 +10,7 @@ be measured after the fact from the API alone. This repository records each
 forecast at the moment it is issued and records the realised value when it
 settles, so that the two can later be scored against each other.
 
-The intended addition is a learned correction to the published forecast,
-promoted into use only when it beats that forecast out of sample. None of the
-modelling exists yet; the current state is below.
+Nobody consumes carbon intensity for its own sake; it is used to decide when to run something. The question this project asks is therefore not how accurate the forecast is, but how good the decisions it produces are. A forecast that is uniformly too high changes no rankings and schedules perfectly; one with small errors that inverts two adjacent windows schedules badly. Only the ordering matters, and mean error does not measure ordering. The intended work is to quantify that gap. None of it exists yet; the current state is below.
 
 ## Status
 
