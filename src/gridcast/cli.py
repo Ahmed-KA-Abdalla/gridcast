@@ -13,6 +13,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from .audit import (
+    cost_of_a_near_miss,
+    decision_detail,
+    ordering_quality,
+    reference_availability,
+)
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .load import coverage, evaluation_frame
@@ -218,6 +224,48 @@ def schedule(root: Path, load: Load) -> int:
     return 0
 
 
+def audit(root: Path, load: Load) -> int:
+    """Open the decision comparison up so its result can be checked.
+
+    Prints, in order: the margin by which the seasonal references had settled
+    before each issue, which rules the availability gate in or out as an
+    explanation; how far each method's choice sat from the optimum; and the
+    shape of the windows, which decides whether a near-miss is cheap.
+    """
+    print("seasonal references, hours settled before the issue time")
+    print(reference_availability(load).round(1).to_string(index=False))
+    print("\nA positive margin at every lag and horizon means no baseline")
+    print("prediction could have used an unsettled reference.")
+
+    detail = decision_detail(root, load)
+    if detail.empty:
+        print("\nno matched decisions to audit")
+        return 0
+
+    print(f"\n{len(detail)} matched decisions: {load.describe()}")
+    print("\ndistance from the true optimum, in half-hour periods")
+    print(ordering_quality(detail).round(3).to_string())
+
+    print("\nwindow shape (gCO2/kWh)")
+    print(cost_of_a_near_miss(detail).round(2).to_string())
+
+    worst = detail.nlargest(5, "published_cost")
+    print("\nthe five costliest published decisions")
+    columns = [
+        "window_start",
+        "published_start",
+        "baseline_start",
+        "oracle_start",
+        "published_cost",
+        "baseline_cost",
+        "oracle_cost",
+        "forecast_bias",
+    ]
+    numeric = worst[columns].select_dtypes(include="number").columns
+    print(worst[columns].round({name: 2 for name in numeric}).to_string(index=False))
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -249,6 +297,10 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         "--interruptible", action="store_true", help="allow the load to be split across the window"
     )
 
+    audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
+    audit_parser.add_argument("--periods", type=int, default=4)
+    audit_parser.add_argument("--window", type=float, default=24.0)
+
     args = parser.parse_args(argv)
 
     if args.command == "snapshot":
@@ -257,6 +309,8 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return report(args.root)
     if args.command == "compare":
         return compare(args.root)
+    if args.command == "audit":
+        return audit(args.root, Load(periods=args.periods, window_hours=args.window))
     if args.command == "schedule":
         return schedule(
             args.root,

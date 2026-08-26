@@ -174,6 +174,36 @@ forecast field in a backfilled range response cannot serve, for the same reason
 it cannot serve as a benchmark. Baselines are unaffected, since they can be
 evaluated at any past moment, so the two are reported on separate samples.
 
+## Auditing the decision comparison
+
+The baselines capture more of the available saving than the published forecast
+on identical decisions, which is surprising enough to need opening up rather
+than reporting.
+
+The first hypothesis was that the baseline was seeing something it should not.
+It was not, and the point is structural rather than empirical: a seasonal
+reference sits seven days before its target, while an issue time sits at most
+forty-eight hours before it, so the reference has settled at least 118.5 hours
+earlier in the tightest case. There is no configuration in which the
+availability gate binds. A test records the margin.
+
+What the audit shows instead is a difference in the shape of the error. Over a
+day-long window the published forecast lands within one period of the optimum on
+half of decisions against the baseline's eighth, and lands more than twelve
+periods away on a fifth against the baseline's eighth. It is right far more
+often and wrong more expensively. The costliest decisions are ones where it
+forecast an overnight period 30 to 43 gCO2/kWh cleaner than it turned out, and
+the scheduler committed to it; the baseline, having no opinion beyond the weekly
+average, stayed near the optimum. A mean regret conflates those two failure
+modes, and the distance-from-optimum breakdown separates them.
+
+One statistic had to be corrected. Window flatness was defined as the gap
+between the best placement and the tenth-best, which is a modest position among
+the forty-five a day-long window offers and the second-worst among the eleven in
+six hours. The figure therefore described the window length rather than the
+shape of the grid, and made the two window sizes look incomparable when they
+were not. It is now taken at rank fractions.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
