@@ -20,10 +20,11 @@ Built: the API client, the parsers, schema validation, raw snapshot storage, the
 command-line interface, the scheduled capture workflow, a daily contract check
 against the live API, the loader that joins issued forecasts to the outcomes
 they were forecasting, two seasonal baselines, the scoring harness, feature
-construction, and the scheduling and regret evaluation.
+construction, the scheduling and regret evaluation, the revision analysis, and a
+damped-revision correction.
 
-Not built: the candidate model, the promotion gate, drift monitoring, and the
-published evaluation report.
+Not built: the promotion gate, drift monitoring, and the published evaluation
+report.
 
 ## Data
 
@@ -120,6 +121,9 @@ gridcast backfill --start 2024-01-01 --end 2026-01-01    # historical actuals
 gridcast report                                          # score what is stored
 gridcast compare                                         # forecast against baselines
 gridcast schedule --periods 4 --window 24                # score decision quality
+gridcast audit --periods 4 --window 24                   # inspect that comparison
+gridcast revisions                                       # how forecasts move over time
+gridcast correct                                         # test a damped-revision correction
 ```
 
 Backfill splits its range into fourteen-day windows, the maximum the range
@@ -158,6 +162,50 @@ record: a much larger sample, and not comparable with the first two, because the
 captured decisions come from a few weeks of one season and the windows differ in
 how much saving was available at all. Compare `mean_available` before comparing
 anything else.
+
+## Forecast revisions
+
+Each period is forecast repeatedly as it approaches, and the API keeps no
+history of those forecasts, so the sequence for a given period is something this
+project holds and the source cannot reproduce. `gridcast revisions` asks three
+things of it.
+
+Whether accuracy improves with proximity, measured on periods forecast at every
+lead so that horizon rather than weather is what differs between the bands.
+
+Whether successive revisions are correlated. A forecast using all available
+information should revise unpredictably: the change from one issue to the next
+should say nothing about the change after it. Positive correlation would mean it
+adjusts gradually towards news it has already received; a value near minus a
+half would mean it jitters around a level rather than converging, retracing most
+of its own movement.
+
+Consecutive captures that found no change are collapsed first. Roughly half of
+captures see an unchanged value, and those repeats dilute any correlation
+towards zero. Collapsing them also gives a figure the API does not publish: how
+often the forecast is actually revised, by lead time.
+
+Whether a revision anticipates the error still remaining, which would be
+directly exploitable and is the sharper version of the same question.
+
+## A damped-revision correction
+
+If the published forecast overshoots — revising further than the outcome
+justifies — then part of its most recent revision should be subtracted rather
+than believed:
+
+    corrected = published - damping * most_recent_revision
+
+One coefficient per lead band, obtained in closed form as the least-squares
+slope of the remaining error on the revision, so nothing is tuned by hand. A
+positive coefficient means the forecast overshoots; a negative one would mean it
+under-reacts and the revision should be amplified instead.
+
+Fitted on earlier dates and scored on later ones, split by date rather than by
+row because revisions of the same target period are not independent. Bands with
+fewer than thirty observations are left uncorrected rather than fitted on noise.
+The improvement column reports what the correction bought out of sample, and a
+negative entry there is a result rather than a failure.
 
 ## Known gaps in the record
 

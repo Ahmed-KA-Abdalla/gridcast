@@ -204,6 +204,63 @@ six hours. The figure therefore described the window length rather than the
 shape of the grid, and made the two window sizes look incomparable when they
 were not. It is now taken at rank fractions.
 
+## Revision dynamics
+
+The captured forecast vintages support a question the source cannot answer about
+itself: whether the published forecast revises efficiently. Under efficiency
+successive revisions are serially uncorrelated, because each incorporates
+everything known at the time and nothing about what comes next. Positive
+autocorrelation indicates under-reaction, and implies part of the coming
+revision is predictable from the last.
+
+The captured series is not the forecaster's revision sequence. About half of
+captures find the value unchanged, so the differenced captured series is padded
+with zeros; consecutive identical values are collapsed before any inference.
+Collapsing also yields a quantity the API does not expose — how often the
+forecast is actually revised, by lead time.
+
+One hypothesis was raised and discarded during this work. The captured
+autocorrelation of roughly minus a half was first attributed to those repeats. A
+test showed the opposite: zeros dilute a correlation towards nothing. Exactly
+minus a half is the signature of a stable level observed with independent noise,
+where consecutive differences share a term with opposite sign — which implies a
+forecast that retraces its own movement rather than converging. The path summary
+corroborates it independently: median total movement of 117.5 gCO2/kWh against
+median net movement of 12, so most movement is undone. Both mechanisms now have
+their own test so the distinction cannot be lost later.
+
+Two measurement points. Accuracy against lead time is computed on periods
+forecast at every lead, since pooling all rows compares different days at
+different horizons and produces a non-monotonic curve that reflects weather
+rather than horizon — an error this project made in an earlier lead-time table.
+And a correlation over revisions of identical size is undefined rather than
+zero; reporting zero there would claim efficiency on the strength of a
+degenerate sample, so the undefined case is left undefined and tested for.
+
+## Correcting the forecast
+
+The revision analysis implies a correction rather than merely describing a
+property. If revisions are anticorrelated and a revision predicts the error
+remaining with a negative sign, the forecast overshoots, and subtracting part of
+its latest revision should reduce error. The coefficient is the least-squares
+slope of the remaining error on the revision, available in closed form, so there
+is no search and nothing tuned by hand.
+
+Three constraints make the result meaningful. Fitting is per lead band, because
+the twelve-hour boundary separates two regimes with typical revision sizes an
+order of magnitude apart. The split is by date, since revisions of the same
+target are not independent and a row-wise split would put a period's early
+revisions in training and its later ones in test. And a band with fewer than
+thirty observations is left uncorrected: passing the published forecast through
+unchanged is the safe default, where a coefficient fitted on a handful of rows
+is noise given a decision to make.
+
+A test fixture caught something about the storage layout in passing. Writing one
+period per snapshot puts several files at the same capture minute, and the later
+ones overwrite the earlier. Real captures carry every period in a single payload,
+so the production path is unaffected, but a fixture that does not imitate that
+shape silently loses most of its own data.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
