@@ -1,0 +1,444 @@
+{
+ "captured_at": "2026-08-27T10:26:35.446819+00:00",
+ "endpoint": "/intensity/2026-08-27T10:26Z/pt24h",
+ "envelope_version": 2,
+ "kind": "outcomes_pt24h",
+ "licence": "CC BY 4.0",
+ "payload": {
+  "data": [
+   {
+    "from": "2026-08-26T10:00Z",
+    "intensity": {
+     "actual": 75,
+     "forecast": 73,
+     "index": "low"
+    },
+    "to": "2026-08-26T10:30Z"
+   },
+   {
+    "from": "2026-08-26T10:30Z",
+    "intensity": {
+     "actual": 74,
+     "forecast": 70,
+     "index": "low"
+    },
+    "to": "2026-08-26T11:00Z"
+   },
+   {
+    "from": "2026-08-26T11:00Z",
+    "intensity": {
+     "actual": 74,
+     "forecast": 69,
+     "index": "low"
+    },
+    "to": "2026-08-26T11:30Z"
+   },
+   {
+    "from": "2026-08-26T11:30Z",
+    "intensity": {
+     "actual": 73,
+     "forecast": 69,
+     "index": "low"
+    },
+    "to": "2026-08-26T12:00Z"
+   },
+   {
+    "from": "2026-08-26T12:00Z",
+    "intensity": {
+     "actual": 70,
+     "forecast": 68,
+     "index": "low"
+    },
+    "to": "2026-08-26T12:30Z"
+   },
+   {
+    "from": "2026-08-26T12:30Z",
+    "intensity": {
+     "actual": 70,
+     "forecast": 72,
+     "index": "low"
+    },
+    "to": "2026-08-26T13:00Z"
+   },
+   {
+    "from": "2026-08-26T13:00Z",
+    "intensity": {
+     "actual": 72,
+     "forecast": 68,
+     "index": "low"
+    },
+    "to": "2026-08-26T13:30Z"
+   },
+   {
+    "from": "2026-08-26T13:30Z",
+    "intensity": {
+     "actual": 74,
+     "forecast": 68,
+     "index": "low"
+    },
+    "to": "2026-08-26T14:00Z"
+   },
+   {
+    "from": "2026-08-26T14:00Z",
+    "intensity": {
+     "actual": 80,
+     "forecast": 69,
+     "index": "low"
+    },
+    "to": "2026-08-26T14:30Z"
+   },
+   {
+    "from": "2026-08-26T14:30Z",
+    "intensity": {
+     "actual": 90,
+     "forecast": 74,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T15:00Z"
+   },
+   {
+    "from": "2026-08-26T15:00Z",
+    "intensity": {
+     "actual": 104,
+     "forecast": 90,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T15:30Z"
+   },
+   {
+    "from": "2026-08-26T15:30Z",
+    "intensity": {
+     "actual": 124,
+     "forecast": 106,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T16:00Z"
+   },
+   {
+    "from": "2026-08-26T16:00Z",
+    "intensity": {
+     "actual": 134,
+     "forecast": 118,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T16:30Z"
+   },
+   {
+    "from": "2026-08-26T16:30Z",
+    "intensity": {
+     "actual": 150,
+     "forecast": 132,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T17:00Z"
+   },
+   {
+    "from": "2026-08-26T17:00Z",
+    "intensity": {
+     "actual": 156,
+     "forecast": 134,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T17:30Z"
+   },
+   {
+    "from": "2026-08-26T17:30Z",
+    "intensity": {
+     "actual": 149,
+     "forecast": 145,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T18:00Z"
+   },
+   {
+    "from": "2026-08-26T18:00Z",
+    "intensity": {
+     "actual": 151,
+     "forecast": 143,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T18:30Z"
+   },
+   {
+    "from": "2026-08-26T18:30Z",
+    "intensity": {
+     "actual": 152,
+     "forecast": 141,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T19:00Z"
+   },
+   {
+    "from": "2026-08-26T19:00Z",
+    "intensity": {
+     "actual": 151,
+     "forecast": 140,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T19:30Z"
+   },
+   {
+    "from": "2026-08-26T19:30Z",
+    "intensity": {
+     "actual": 149,
+     "forecast": 141,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T20:00Z"
+   },
+   {
+    "from": "2026-08-26T20:00Z",
+    "intensity": {
+     "actual": 143,
+     "forecast": 148,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T20:30Z"
+   },
+   {
+    "from": "2026-08-26T20:30Z",
+    "intensity": {
+     "actual": 137,
+     "forecast": 108,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T21:00Z"
+   },
+   {
+    "from": "2026-08-26T21:00Z",
+    "intensity": {
+     "actual": 127,
+     "forecast": 140,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T21:30Z"
+   },
+   {
+    "from": "2026-08-26T21:30Z",
+    "intensity": {
+     "actual": 109,
+     "forecast": 128,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T22:00Z"
+   },
+   {
+    "from": "2026-08-26T22:00Z",
+    "intensity": {
+     "actual": 101,
+     "forecast": 122,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T22:30Z"
+   },
+   {
+    "from": "2026-08-26T22:30Z",
+    "intensity": {
+     "actual": 95,
+     "forecast": 106,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T23:00Z"
+   },
+   {
+    "from": "2026-08-26T23:00Z",
+    "intensity": {
+     "actual": 91,
+     "forecast": 105,
+     "index": "moderate"
+    },
+    "to": "2026-08-26T23:30Z"
+   },
+   {
+    "from": "2026-08-26T23:30Z",
+    "intensity": {
+     "actual": 91,
+     "forecast": 104,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T00:00Z"
+   },
+   {
+    "from": "2026-08-27T00:00Z",
+    "intensity": {
+     "actual": 87,
+     "forecast": 88,
+     "index": "low"
+    },
+    "to": "2026-08-27T00:30Z"
+   },
+   {
+    "from": "2026-08-27T00:30Z",
+    "intensity": {
+     "actual": 93,
+     "forecast": 89,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T01:00Z"
+   },
+   {
+    "from": "2026-08-27T01:00Z",
+    "intensity": {
+     "actual": 96,
+     "forecast": 82,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T01:30Z"
+   },
+   {
+    "from": "2026-08-27T01:30Z",
+    "intensity": {
+     "actual": 93,
+     "forecast": 88,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T02:00Z"
+   },
+   {
+    "from": "2026-08-27T02:00Z",
+    "intensity": {
+     "actual": 92,
+     "forecast": 90,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T02:30Z"
+   },
+   {
+    "from": "2026-08-27T02:30Z",
+    "intensity": {
+     "actual": 91,
+     "forecast": 91,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T03:00Z"
+   },
+   {
+    "from": "2026-08-27T03:00Z",
+    "intensity": {
+     "actual": 97,
+     "forecast": 89,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T03:30Z"
+   },
+   {
+    "from": "2026-08-27T03:30Z",
+    "intensity": {
+     "actual": 101,
+     "forecast": 84,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T04:00Z"
+   },
+   {
+    "from": "2026-08-27T04:00Z",
+    "intensity": {
+     "actual": 116,
+     "forecast": 120,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T04:30Z"
+   },
+   {
+    "from": "2026-08-27T04:30Z",
+    "intensity": {
+     "actual": 129,
+     "forecast": 103,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T05:00Z"
+   },
+   {
+    "from": "2026-08-27T05:00Z",
+    "intensity": {
+     "actual": 139,
+     "forecast": 119,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T05:30Z"
+   },
+   {
+    "from": "2026-08-27T05:30Z",
+    "intensity": {
+     "actual": 149,
+     "forecast": 131,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T06:00Z"
+   },
+   {
+    "from": "2026-08-27T06:00Z",
+    "intensity": {
+     "actual": 153,
+     "forecast": 134,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T06:30Z"
+   },
+   {
+    "from": "2026-08-27T06:30Z",
+    "intensity": {
+     "actual": 142,
+     "forecast": 151,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T07:00Z"
+   },
+   {
+    "from": "2026-08-27T07:00Z",
+    "intensity": {
+     "actual": 142,
+     "forecast": 153,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T07:30Z"
+   },
+   {
+    "from": "2026-08-27T07:30Z",
+    "intensity": {
+     "actual": 130,
+     "forecast": 142,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T08:00Z"
+   },
+   {
+    "from": "2026-08-27T08:00Z",
+    "intensity": {
+     "actual": 128,
+     "forecast": 140,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T08:30Z"
+   },
+   {
+    "from": "2026-08-27T08:30Z",
+    "intensity": {
+     "actual": 126,
+     "forecast": 130,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T09:00Z"
+   },
+   {
+    "from": "2026-08-27T09:00Z",
+    "intensity": {
+     "actual": 128,
+     "forecast": 124,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T09:30Z"
+   },
+   {
+    "from": "2026-08-27T09:30Z",
+    "intensity": {
+     "actual": 129,
+     "forecast": 127,
+     "index": "moderate"
+    },
+    "to": "2026-08-27T10:00Z"
+   }
+  ]
+ },
+ "source": "NESO Carbon Intensity API"
+}
