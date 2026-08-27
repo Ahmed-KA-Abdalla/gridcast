@@ -56,7 +56,18 @@ def test_ordering_quality_measures_distance_not_cost():
 
     assert scored.loc["published", "mean_periods_from_optimum"] == pytest.approx(0.5)
     assert scored.loc["published", "within_one_period"] == pytest.approx(1.0)
-    assert scored.loc["baseline", "worse_than_twelve_periods"] == pytest.approx(0.5)
+
+
+def test_far_misses_are_expressed_as_a_fraction_of_the_window():
+    # A six-hour window offers eleven placements, so no choice within it can be
+    # twelve periods from the optimum. A fixed threshold would report zero as
+    # though it were a finding rather than arithmetic.
+    short = detail_frame([(10, 0, 0)])
+    short["placements"] = 11
+    scored = ordering_quality(short)
+
+    assert scored.loc["published", "mean_fraction_of_window"] == pytest.approx(1.0)
+    assert scored.loc["published", "beyond_half_the_window"] == pytest.approx(1.0)
 
 
 def test_excess_relative_to_spread_says_whether_precision_matters():

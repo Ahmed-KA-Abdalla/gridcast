@@ -127,20 +127,31 @@ def ordering_quality(detail: pd.DataFrame) -> pd.DataFrame:
     Distance in periods separates two failures a cost figure conflates: picking
     a window adjacent to the best one, and picking a window on the wrong side of
     the day.
+
+    The far-miss statistic is expressed as a fraction of the window rather than
+    a fixed number of periods. A six-hour window offers eleven placements, so no
+    choice within it can be twelve periods from the optimum; reporting a fixed
+    threshold that cannot be crossed reads as a finding when it is arithmetic.
     """
     if detail.empty:
         return pd.DataFrame()
 
+    placements = detail.get("placements", None)
+
     rows = {}
     for name in ("published", "baseline"):
         offset = (detail[f"{name}_start"] - detail["oracle_start"]).abs()
-        rows[name] = {
+        entry = {
             "mean_periods_from_optimum": float(offset.mean()),
             "median_periods_from_optimum": float(offset.median()),
             "within_one_period": float((offset <= 1).mean()),
             "within_four_periods": float((offset <= 4).mean()),
-            "worse_than_twelve_periods": float((offset > 12).mean()),
         }
+        if placements is not None:
+            relative = offset / (placements - 1).replace(0, np.nan)
+            entry["mean_fraction_of_window"] = float(relative.mean())
+            entry["beyond_half_the_window"] = float((relative > 0.5).mean())
+        rows[name] = entry
     return pd.DataFrame(rows).T
 
 
