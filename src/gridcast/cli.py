@@ -20,9 +20,19 @@ from .audit import (
     reference_availability,
 )
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
+from .correction import evaluate_correction
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
+from .revisions import (
+    distinct_revisions,
+    error_by_lead,
+    path_summary,
+    refresh_cadence,
+    revision_autocorrelation,
+    revision_paths,
+    revision_predicts_error,
+)
 from .scheduling import Load
 from .schema import ValidationError, validate_generation, validate_intensity
 from .storage import DEFAULT_ROOT, write_snapshot
@@ -266,6 +276,85 @@ def audit(root: Path, load: Load) -> int:
     return 0
 
 
+def revisions(root: Path) -> int:
+    """Report how the published forecast moves as its target approaches.
+
+    Three things. Whether accuracy improves with proximity, measured on periods
+    forecast at every lead so that horizon rather than weather is what varies.
+    Whether successive revisions are correlated, which an efficient forecast
+    would not produce. And whether a revision anticipates the error still
+    remaining, which would be directly exploitable.
+    """
+    paths = revision_paths(root)
+    if paths.empty:
+        print("no captured forecasts to examine")
+        return 0
+
+    distinct = distinct_revisions(paths)
+    summary = path_summary(paths)
+    unchanged = float(paths["revision"].eq(0).mean())
+
+    print(f"{len(summary)} periods, {len(paths)} captures of them")
+    print(f"captures finding no change:  {unchanged:.1%}")
+    print(f"distinct forecast values:    {len(distinct)}")
+    print(f"median captures per period:  {summary['issues'].median():.0f}")
+    print(f"median total movement:       {summary['total_movement'].median():.1f} gCO2/kWh")
+    print(f"median net movement:         {summary['net_movement'].abs().median():.1f}")
+    print(f"median movement retraced:    {summary['wander'].median():.1f}")
+
+    cadence = refresh_cadence(distinct)
+    if not cadence.empty:
+        print("\nhow often the forecast is actually revised")
+        print(cadence.round(2).to_string(index=False))
+
+    matched = error_by_lead(root, matched=True)
+    if not matched.empty:
+        print("\nerror against lead time, periods forecast at every lead")
+        print(matched.round(2).to_string(index=False))
+
+    scored = revision_autocorrelation(distinct)
+    if not scored.empty:
+        print("\ncorrelation between a revision and the one before it")
+        print(scored.round(3).to_string(index=False))
+        print("Computed over distinct revisions only; captures that changed nothing")
+        print("dilute the figure towards zero. Near zero is what an efficient forecast")
+        print("produces. Positive means it adjusts gradually towards news it already")
+        print("has. Near -0.5 means it jitters around a level rather than converging,")
+        print("which the retraced-movement figure above should corroborate.")
+
+    predictive = revision_predicts_error(root)
+    if not predictive.empty:
+        print("\ncorrelation between a revision and the error still remaining")
+        print(predictive.round(3).to_string(index=False))
+
+    return 0
+
+
+def correct(root: Path, train_fraction: float) -> int:
+    """Test whether damping the published forecast's revisions improves it.
+
+    The coefficient is fitted on earlier dates and scored on later ones. A
+    positive coefficient means part of each revision is undone; the improvement
+    column is what that bought out of sample, so a negative value there is a
+    result and not a failure.
+    """
+    summary, damping, note = evaluate_correction(root, train_fraction)
+    if summary.empty:
+        print(note.get("reason", "not enough captured revisions to fit a correction"))
+        return 0
+
+    print(
+        f"fitted on {note['train_dates']} days ({note['train_rows']} revisions), "
+        f"scored on {note['test_dates']} days ({note['test_rows']})"
+    )
+    print("\nout-of-sample error, gCO2/kWh")
+    print(summary.round(3).to_string(index=False))
+    print("\nA positive damping coefficient means the forecast overshoots and part")
+    print("of each revision is better undone. Improvement is measured only on the")
+    print("held-out dates.")
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -297,6 +386,16 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         "--interruptible", action="store_true", help="allow the load to be split across the window"
     )
 
+    sub.add_parser("revisions", help="examine how forecasts move as targets approach")
+
+    correct_parser = sub.add_parser("correct", help="test a damped-revision correction")
+    correct_parser.add_argument(
+        "--train-fraction",
+        type=float,
+        default=0.6,
+        help="share of dates used to fit the coefficient",
+    )
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -309,6 +408,10 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return report(args.root)
     if args.command == "compare":
         return compare(args.root)
+    if args.command == "revisions":
+        return revisions(args.root)
+    if args.command == "correct":
+        return correct(args.root, args.train_fraction)
     if args.command == "audit":
         return audit(args.root, Load(periods=args.periods, window_hours=args.window))
     if args.command == "schedule":
