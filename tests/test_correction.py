@@ -260,3 +260,104 @@ def test_correct_command_says_so_when_there_is_nothing_to_fit(tmp_path, capsys):
 
     assert main(["--root", str(tmp_path), "correct"]) == 0
     assert "not enough captured revisions" in capsys.readouterr().out
+
+
+# -- intervals ------------------------------------------------------------
+
+
+def scored_frame(published: list[float], corrected: list[float], periods=None) -> pd.DataFrame:
+    count = len(published)
+    if periods is None:
+        # One distinct period per row, so the resampling has as many clusters
+        # as observations and behaves like an ordinary paired bootstrap.
+        periods = pd.date_range("2026-08-20", periods=count, freq="30min", tz="UTC")
+    return pd.DataFrame(
+        {
+            "published_abs_error": published,
+            "corrected_abs_error": corrected,
+            "period_start": pd.to_datetime(periods, utc=True),
+        }
+    )
+
+
+def test_a_clear_improvement_has_an_interval_above_zero():
+    from gridcast.correction import bootstrap_improvement
+
+    rng = np.random.default_rng(0)
+    published = list(rng.normal(20, 3, 200))
+    corrected = [value - 5.0 for value in published]
+
+    result = bootstrap_improvement(scored_frame(published, corrected), resamples=500)
+    assert result["improvement_low"] > 0
+    assert result["worse_fraction"] == 0.0
+
+
+def test_a_negligible_improvement_has_an_interval_spanning_zero():
+    # The case the point estimate hides: a small positive mean that a resample
+    # turns negative about as often as not.
+    from gridcast.correction import bootstrap_improvement
+
+    rng = np.random.default_rng(1)
+    published = list(rng.normal(20, 8, 200))
+    corrected = list(rng.normal(20, 8, 200))
+
+    result = bootstrap_improvement(scored_frame(published, corrected), resamples=500)
+    assert result["improvement_low"] < 0 < result["improvement_high"]
+
+
+def test_a_correction_that_hurts_shows_a_negative_interval():
+    from gridcast.correction import bootstrap_improvement
+
+    rng = np.random.default_rng(2)
+    published = list(rng.normal(20, 3, 200))
+    corrected = [value + 5.0 for value in published]
+
+    result = bootstrap_improvement(scored_frame(published, corrected), resamples=500)
+    assert result["improvement_high"] < 0
+    assert result["worse_fraction"] == 1.0
+
+
+def test_resampling_is_by_period_not_by_row():
+    # Rows sharing a target period move together. Resampling rows would treat
+    # forty correlated observations as forty independent ones and give an
+    # interval far too narrow.
+    from gridcast.correction import bootstrap_improvement
+
+    rng = np.random.default_rng(3)
+    periods, published, corrected = [], [], []
+    for index in range(10):
+        # Each period contributes twenty rows sharing one common offset.
+        offset = rng.normal(0, 6)
+        for _ in range(20):
+            periods.append(pd.Timestamp("2026-08-20T00:00Z") + pd.Timedelta(days=index))
+            base = rng.normal(20, 1)
+            published.append(base)
+            corrected.append(base - offset)
+
+    frame = scored_frame(published, corrected, periods)
+    clustered = bootstrap_improvement(frame, resamples=500)
+
+    assert clustered["periods"] == 10
+    width = clustered["improvement_high"] - clustered["improvement_low"]
+    # Ten clusters of correlated rows cannot support a tight interval.
+    assert width > 1.0
+
+
+def test_an_interval_needs_more_than_one_period():
+    from gridcast.correction import bootstrap_improvement
+
+    frame = scored_frame([20.0, 21.0], [15.0, 16.0], [pd.Timestamp("2026-08-20T00:00Z")] * 2)
+    assert bootstrap_improvement(frame) == {}
+
+
+def test_evaluation_with_intervals_marks_which_bands_are_significant(overshooting_store):
+    from gridcast.correction import evaluate_with_intervals
+
+    summary, _, note = evaluate_with_intervals(overshooting_store, resamples=300)
+
+    assert not summary.empty
+    assert "improvement_low" in summary.columns
+    assert "significant" in summary.columns
+    assert note["resamples"] == 300
+    # The fixture overshoots by construction, so at least one band should hold up.
+    assert summary["significant"].any()

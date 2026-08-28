@@ -36,6 +36,10 @@ from .storage import DEFAULT_ROOT
 #: published forecast is passed through unchanged.
 MIN_OBSERVATIONS = 30
 
+#: Resamples used for the interval around an improvement. Enough for a
+#: percentile interval at the 95% level to be stable to a few hundredths.
+BOOTSTRAP_RESAMPLES = 2000
+
 
 @dataclass(frozen=True)
 class Damping:
@@ -176,3 +180,98 @@ def evaluate_correction(
         "test_rows": int(len(test)),
     }
     return summary.reset_index(), damping, note
+
+
+def bootstrap_improvement(
+    scored: pd.DataFrame,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+    seed: int = 0,
+) -> dict[str, float]:
+    """A percentile interval for the improvement, resampled by target period.
+
+    Paired: each resample takes the same rows for both forecasts, so the
+    interval describes the difference between them rather than the variability
+    of either. Without pairing the two errors would be resampled independently
+    and the interval would be far too wide.
+
+    Resampled by target period rather than by row. Several revisions of the same
+    period appear in the frame and their errors move together, so treating rows
+    as independent would understate the interval — the same reason the
+    train-test split is by date.
+    """
+    if scored.empty:
+        return {}
+
+    difference = scored["published_abs_error"] - scored["corrected_abs_error"]
+    clusters = scored["period_start"].to_numpy()
+    unique = np.unique(clusters)
+    if len(unique) < 2:
+        return {}
+
+    grouped = {period: difference[clusters == period].to_numpy() for period in unique}
+    rng = np.random.default_rng(seed)
+    means = np.empty(resamples)
+
+    for index in range(resamples):
+        drawn = rng.choice(unique, size=len(unique), replace=True)
+        means[index] = np.concatenate([grouped[period] for period in drawn]).mean()
+
+    low, high = np.percentile(means, [2.5, 97.5])
+    return {
+        "improvement_low": float(low),
+        "improvement_high": float(high),
+        # The share of resamples in which the correction made matters worse.
+        "worse_fraction": float((means <= 0).mean()),
+        "periods": int(len(unique)),
+    }
+
+
+def evaluate_with_intervals(
+    root: Path = DEFAULT_ROOT,
+    train_fraction: float = 0.6,
+    resamples: int = BOOTSTRAP_RESAMPLES,
+) -> tuple[pd.DataFrame, Damping, dict[str, object]]:
+    """As ``evaluate_correction``, with a confidence interval per band.
+
+    An improvement without an interval cannot be read: a gain of 0.05 gCO2/kWh
+    on a few hundred rows is indistinguishable from none, and nothing in the
+    point estimate says so.
+    """
+    frame = revision_frame(root)
+    if frame.empty:
+        return pd.DataFrame(), Damping({}, {}), {}
+
+    train, test = split_by_date(frame, train_fraction)
+    if test.empty:
+        return pd.DataFrame(), Damping({}, {}), {"reason": "not enough dates to hold any out"}
+
+    damping = fit_damping(train)
+    scored = apply_damping(test, damping)
+
+    records = []
+    for band, part in scored.groupby("band", observed=True):
+        entry = {
+            "band": band,
+            "n": int(len(part)),
+            "damping": float(part["damping"].iloc[0]),
+            "published_mae": float(part["published_abs_error"].mean()),
+            "corrected_mae": float(part["corrected_abs_error"].mean()),
+        }
+        entry["improvement"] = entry["published_mae"] - entry["corrected_mae"]
+        entry.update(bootstrap_improvement(part, resamples=resamples))
+        records.append(entry)
+
+    summary = pd.DataFrame(records)
+    if not summary.empty:
+        summary["significant"] = (
+            summary.get("improvement_low", pd.Series(np.nan, index=summary.index)) > 0
+        )
+
+    note = {
+        "train_dates": int(train["date"].nunique()),
+        "test_dates": int(test["date"].nunique()),
+        "train_rows": int(len(train)),
+        "test_rows": int(len(test)),
+        "resamples": resamples,
+    }
+    return summary, damping, note

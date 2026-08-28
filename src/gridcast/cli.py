@@ -20,7 +20,7 @@ from .audit import (
     reference_availability,
 )
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
-from .correction import evaluate_correction
+from .correction import evaluate_with_intervals
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
@@ -338,7 +338,7 @@ def correct(root: Path, train_fraction: float) -> int:
     column is what that bought out of sample, so a negative value there is a
     result and not a failure.
     """
-    summary, damping, note = evaluate_correction(root, train_fraction)
+    summary, damping, note = evaluate_with_intervals(root, train_fraction)
     if summary.empty:
         print(note.get("reason", "not enough captured revisions to fit a correction"))
         return 0
@@ -347,11 +347,12 @@ def correct(root: Path, train_fraction: float) -> int:
         f"fitted on {note['train_dates']} days ({note['train_rows']} revisions), "
         f"scored on {note['test_dates']} days ({note['test_rows']})"
     )
-    print("\nout-of-sample error, gCO2/kWh")
+    print("\nout-of-sample error, gCO2/kWh, with 95% intervals")
     print(summary.round(3).to_string(index=False))
     print("\nA positive damping coefficient means the forecast overshoots and part")
-    print("of each revision is better undone. Improvement is measured only on the")
-    print("held-out dates.")
+    print("of each revision is better undone. Intervals come from a paired bootstrap")
+    print("resampled by target period, so a band is only worth believing where")
+    print("improvement_low is above zero.")
     return 0
 
 
