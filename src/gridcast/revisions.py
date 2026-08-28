@@ -185,27 +185,32 @@ def revision_autocorrelation(paths: pd.DataFrame) -> pd.DataFrame:
     if usable.empty:
         return pd.DataFrame()
 
-    records = [
-        {
-            "lead": "all",
-            "n": int(len(usable)),
-            "autocorrelation": float(usable["revision"].corr(usable["previous_revision"])),
-            "mean_abs_revision": float(usable["revision"].abs().mean()),
-        }
-    ]
-
-    buckets = pd.cut(usable["horizon_hours"], bins=list(LEAD_BINS), right=True)
-    for bucket, part in usable.groupby(buckets, observed=True):
-        if len(part) < 3:
-            continue
-        records.append(
+    # A band whose revisions are all identical has no variance, so the
+    # correlation is genuinely undefined and NaN is the answer wanted. NumPy
+    # warns about the division that produces it; the warning is expected here
+    # and silencing it deliberately keeps real ones visible.
+    with np.errstate(invalid="ignore", divide="ignore"):
+        records = [
             {
-                "lead": str(bucket),
-                "n": int(len(part)),
-                "autocorrelation": float(part["revision"].corr(part["previous_revision"])),
-                "mean_abs_revision": float(part["revision"].abs().mean()),
+                "lead": "all",
+                "n": int(len(usable)),
+                "autocorrelation": float(usable["revision"].corr(usable["previous_revision"])),
+                "mean_abs_revision": float(usable["revision"].abs().mean()),
             }
-        )
+        ]
+
+        buckets = pd.cut(usable["horizon_hours"], bins=list(LEAD_BINS), right=True)
+        for bucket, part in usable.groupby(buckets, observed=True):
+            if len(part) < 3:
+                continue
+            records.append(
+                {
+                    "lead": str(bucket),
+                    "n": int(len(part)),
+                    "autocorrelation": float(part["revision"].corr(part["previous_revision"])),
+                    "mean_abs_revision": float(part["revision"].abs().mean()),
+                }
+            )
 
     return pd.DataFrame(records)
 
@@ -273,21 +278,22 @@ def revision_predicts_error(root: Path = DEFAULT_ROOT) -> pd.DataFrame:
     joined["remaining_error"] = joined["actual"] - joined["forecast"]
 
     buckets = pd.cut(joined["horizon_hours"], bins=list(LEAD_BINS), right=True)
-    records = [
-        {
-            "lead": "all",
-            "n": int(len(joined)),
-            "correlation": float(joined["revision"].corr(joined["remaining_error"])),
-        }
-    ]
-    for bucket, part in joined.groupby(buckets, observed=True):
-        if len(part) < 3:
-            continue
-        records.append(
+    with np.errstate(invalid="ignore", divide="ignore"):
+        records = [
             {
-                "lead": str(bucket),
-                "n": int(len(part)),
-                "correlation": float(part["revision"].corr(part["remaining_error"])),
+                "lead": "all",
+                "n": int(len(joined)),
+                "correlation": float(joined["revision"].corr(joined["remaining_error"])),
             }
-        )
+        ]
+        for bucket, part in joined.groupby(buckets, observed=True):
+            if len(part) < 3:
+                continue
+            records.append(
+                {
+                    "lead": str(bucket),
+                    "n": int(len(part)),
+                    "correlation": float(part["revision"].corr(part["remaining_error"])),
+                }
+            )
     return pd.DataFrame(records)
