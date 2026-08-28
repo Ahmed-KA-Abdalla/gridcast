@@ -1,18 +1,22 @@
 name: capture
 
-# Runs on the half hour. GitHub does not guarantee punctuality for scheduled
-# workflows and drops runs under load, so gaps in the record are expected and
-# are treated as data rather than as failures.
+# Nominally hourly. GitHub queues scheduled workflows at low priority and drops
+# them under load, and the delivered rate is a fraction of the nominal one: at a
+# half-hourly cadence this repository received roughly 60% of its runs in the
+# first week and under 10% in the second. Asking for less may deliver more,
+# since a lower nominal rate is deprioritised less aggressively. The observed
+# rate is recorded in docs/design.md.
+#
+# Missed runs cost forecast vintages but not outcomes, because each run
+# re-harvests the past 24 hours. That redundancy exists for this reason.
 on:
   schedule:
-    - cron: "0,30 * * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# A late run must not overlap the next one and produce two commits racing for
-# the same branch.
 concurrency:
   group: capture
   cancel-in-progress: false
@@ -46,4 +50,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/raw
           git commit -m "capture: $(date -u +'%Y-%m-%dT%H:%MZ')"
-          git push
+          # A push made while a human push is landing is rejected outright.
+          # Rebasing onto whatever arrived keeps the capture rather than losing
+          # it to a race, which is what cost run #178.
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push attempt $attempt failed, retrying"
+            sleep 5
+          done
+          exit 1
