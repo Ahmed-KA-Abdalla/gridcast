@@ -1,0 +1,21 @@
+{
+ "captured_at": "2026-08-28T05:07:52.865985+00:00",
+ "endpoint": "/intensity",
+ "envelope_version": 2,
+ "kind": "intensity",
+ "licence": "CC BY 4.0",
+ "payload": {
+  "data": [
+   {
+    "from": "2026-08-28T04:30Z",
+    "intensity": {
+     "actual": 163,
+     "forecast": 161,
+     "index": "moderate"
+    },
+    "to": "2026-08-28T05:00Z"
+   }
+  ]
+ },
+ "source": "NESO Carbon Intensity API"
+}
