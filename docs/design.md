@@ -261,6 +261,43 @@ ones overwrite the earlier. Real captures carry every period in a single payload
 so the production path is unaffected, but a fixture that does not imitate that
 shape silently loses most of its own data.
 
+## Delivered capture rate
+
+The workflow asks for a run every hour. It receives fewer, and the shortfall is
+a property of the platform rather than of this repository.
+
+Observed, against a nominal half-hourly schedule: 38 runs on 23 August, 27 on
+the 24th, 26 on the 25th, 17 on the 26th, then 2 on the 27th and 1 on the 28th.
+The runs that started all succeeded in 25 to 28 seconds. One failure in that
+period, run #178, was a push rejected because a human push landed first, and the
+commit step now rebases and retries.
+
+Two candidate causes were checked and dropped. The repository is 2.38 MiB
+packed, so size is not the constraint — git deltas these repetitive payloads
+almost perfectly. And the runs are not failing, they are not being started, so
+nothing in the code path is responsible.
+
+The cadence was reduced to hourly on that evidence, on the hypothesis that a
+lower nominal rate is deprioritised less aggressively. Whether it delivers more
+in absolute terms is an open question that the record itself will answer.
+
+The design already assumes this. Each run re-harvests the past 24 hours, so a
+missed run costs forecast vintages but no outcomes. The redundancy was added on
+the second day for exactly this reason, before the delivery rate was known.
+
+## Intervals on the correction
+
+An improvement without an interval cannot be read. The correction reduces error
+by 6.7% at 6-12 hours and by 0.3% at 0-3, and only one of those is worth
+believing; the point estimates alone do not say which.
+
+The interval comes from a paired bootstrap. Paired because both forecasts are
+scored on the same resampled rows, so the interval describes the difference
+rather than the variability of either. Resampled by target period rather than by
+row, because several revisions of one period appear in the frame and their
+errors move together — treating them as independent would give an interval far
+too narrow, and the same reasoning governs the train-test split.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

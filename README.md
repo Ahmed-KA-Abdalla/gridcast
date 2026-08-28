@@ -43,6 +43,11 @@ Three endpoints are captured every half hour:
 | `/generation` | Fuel shares for the period in progress |
 | `/generation/{from}/{to}` | Fuel shares for the past 24 hours |
 
+Capture is scheduled hourly and delivered less often than that: GitHub queues
+scheduled workflows at low priority and drops them under load. Because each run
+re-harvests the past day, a missed run costs forecast vintages but no outcomes.
+The observed delivery rate is recorded in `docs/design.md`.
+
 Raw responses are written verbatim under `data/raw/YYYY/MM/DD/`, each wrapped in
 an envelope recording the endpoint requested and the time the response arrived.
 Parsed derivatives are not stored: the parser will change, and a stored payload
@@ -204,8 +209,10 @@ under-reacts and the revision should be amplified instead.
 Fitted on earlier dates and scored on later ones, split by date rather than by
 row because revisions of the same target period are not independent. Bands with
 fewer than thirty observations are left uncorrected rather than fitted on noise.
-The improvement column reports what the correction bought out of sample, and a
-negative entry there is a result rather than a failure.
+
+Each improvement carries a 95% interval from a paired bootstrap resampled by
+target period. A band is worth believing only where the lower bound is above
+zero; a point estimate on its own cannot distinguish a real gain from none.
 
 ## Known gaps in the record
 
