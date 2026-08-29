@@ -1,0 +1,70 @@
+name: gate
+
+# Refits the damped-revision correction on the current record and checks it
+# still holds out of sample. Weekly rather than per-commit: the record only
+# grows by a few captures a day, so a daily run would mostly re-report the same
+# verdict and train everyone to ignore it.
+#
+# The job fails only when a band that had been promoted no longer qualifies.
+# Bands that have never qualified failing again is the normal state.
+on:
+  schedule:
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/gridcast/correction.py"
+      - "src/gridcast/gate.py"
+      - "src/gridcast/revisions.py"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gate
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      # On a pull request the verdict is reported but the record is left alone:
+      # a branch must not be able to promote a coefficient into the record it is
+      # being judged against.
+      - name: Check the correction still holds
+        if: github.event_name == 'pull_request'
+        run: gridcast gate
+
+      - name: Check and record
+        if: github.event_name != 'pull_request'
+        run: gridcast gate --update
+
+      - name: Commit the verdict
+        if: github.event_name != 'pull_request'
+        run: |
+          if [ -z "$(git status --porcelain docs/promoted.json)" ]; then
+            echo "verdict unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/promoted.json
+          git commit -m "gate: $(date -u +'%Y-%m-%dT%H:%MZ')"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "push attempt $attempt failed, retrying"
+            sleep 5
+          done
+          exit 1

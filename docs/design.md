@@ -278,8 +278,16 @@ almost perfectly. And the runs are not failing, they are not being started, so
 nothing in the code path is responsible.
 
 The cadence was reduced to hourly on that evidence, on the hypothesis that a
-lower nominal rate is deprioritised less aggressively. Whether it delivers more
-in absolute terms is an open question that the record itself will answer.
+lower nominal rate is deprioritised less aggressively. It delivered the same two
+runs a day, so the hypothesis was wrong and the ask was not the constraint. Two
+a day is what free scheduled Actions gives this repository.
+
+The consequence is stated rather than worked around. Moving capture to a machine
+under our own control would restore the rate, but the extra data would be
+another week of late summer, and the open question — whether the correction's
+coefficient survives a winter — needs months rather than days. The revision and
+correction analyses rest on 20-26 August, when capture was dense, and the
+repository says so.
 
 The design already assumes this. Each run re-harvests the past 24 hours, so a
 missed run costs forecast vintages but no outcomes. The redundancy was added on
@@ -297,6 +305,54 @@ rather than the variability of either. Resampled by target period rather than by
 row, because several revisions of one period appear in the frame and their
 errors move together — treating them as independent would give an interval far
 too narrow, and the same reasoning governs the train-test split.
+
+## Splitting by date, and where that goes wrong
+
+The train-test split takes the first 60% of dates. The reasoning is sound —
+revisions of the same target period are not independent, so a row-wise split
+would put a period's early revisions in training and its later ones in test —
+but the implementation has a fault that only appeared once the capture rate
+changed.
+
+A fixed fraction of dates is not a fixed fraction of rows. Capture fell from
+around 38 runs a day to 2, so the later dates carry a small share of the data.
+On 28 August the split gave 5,261 training revisions against 3,509 test; on the
+29th, with three more sparse days added, it gave 8,265 against 797. The test
+half had shrunk by a factor of four while appearing, by the date count, to have
+grown.
+
+The consequence is visible in the gate's first run. Bands that were significant
+the day before, with improvements of +0.74 and +0.99 gCO2/kWh, reported +0.19
+and -1.19 with intervals spanning zero. That is not the correction failing: the
+coefficients barely moved, 0.44, 0.48 and 0.47 against 0.44, 0.47 and 0.46 the
+day before. It is a held-out sample too thin to detect anything, and the
+intervals correctly declining to claim otherwise.
+
+Two things follow. The split should divide on the date that balances rows rather
+than the date at a fixed position, so a changing capture rate cannot silently
+starve one half. And the coefficients' stability across two very different test
+samples is mild evidence for the correction, which no single run reports.
+
+## The promotion gate
+
+The correction was significant once, on four days of one week. The gate exists
+to keep asking whether it still is.
+
+Three conditions, and the third is the one worth defending. An interval
+excluding zero says the improvement is unlikely to be chance on this sample; it
+says nothing about whether the coefficient is a property of the forecast. A
+refit that moves the coefficient from 0.46 to 0.93 is describing the sample,
+and the gate rejects it on stability grounds even where its interval is clean.
+
+The build fails only on regression — a band that had been promoted and no longer
+is. Failing whenever any band falls short would leave the build red from the
+first run, since most bands never clear the bar, and a permanently red gate is
+one nobody reads. A promoted band that vanishes from the evaluation entirely
+counts as regressing: its recorded coefficient is then standing on nothing, and
+the absence of a row reporting it makes the situation easy to miss.
+
+On a pull request the gate reports but does not write the record. A branch must
+not be able to promote a coefficient into the record it is being judged against.
 
 ## Known limitations
 

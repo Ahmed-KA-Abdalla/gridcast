@@ -22,6 +22,13 @@ from .audit import (
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
 from .correction import evaluate_with_intervals
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
+from .gate import (
+    DEFAULT_RECORD,
+    evaluate_gate,
+    gate_passes,
+    load_record,
+    write_record,
+)
 from .load import coverage, evaluation_frame
 from .parse import ParseError, parse_generation, parse_intensity
 from .revisions import (
@@ -356,6 +363,46 @@ def correct(root: Path, train_fraction: float) -> int:
     return 0
 
 
+def gate(root: Path, record: Path, update: bool) -> int:
+    """Refit the correction and decide whether it still holds.
+
+    Exits non-zero only when a band that had been promoted no longer qualifies.
+    A band that has never qualified failing again is the normal state and does
+    not fail the build; a gate that is red from the first run teaches everyone
+    to ignore it.
+    """
+    previous = load_record(record)
+    verdicts, note = evaluate_gate(root, record=record)
+
+    if not verdicts:
+        print(note.get("reason", "not enough captured revisions to evaluate"))
+        return 0
+
+    print(
+        f"fitted on {note['train_dates']} days ({note['train_rows']} revisions), "
+        f"scored on {note['test_dates']} days ({note['test_rows']})\n"
+    )
+    for item in verdicts:
+        mark = "promoted" if item.promoted else "held back"
+        drift = f", was {item.previous_damping:.2f}" if item.previous_damping is not None else ""
+        print(
+            f"{item.band:>10}  {mark:<10} damping {item.damping:.2f}{drift}, "
+            f"improvement {item.improvement:+.3f} "
+            f"(low {item.improvement_low:+.3f}), "
+            f"n={item.n} over {item.periods} periods"
+        )
+        for reason in item.reasons:
+            print(f"{'':>12}  - {reason}")
+
+    passes, message = gate_passes(verdicts, previous)
+    print(f"\n{message}")
+
+    if update:
+        print(f"wrote {write_record(verdicts, path=record)}")
+
+    return 0 if passes else 1
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -389,6 +436,14 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
 
     sub.add_parser("revisions", help="examine how forecasts move as targets approach")
 
+    gate_parser = sub.add_parser("gate", help="check the correction still holds")
+    gate_parser.add_argument(
+        "--record", type=Path, default=DEFAULT_RECORD, help="where promoted coefficients are stored"
+    )
+    gate_parser.add_argument(
+        "--update", action="store_true", help="rewrite the record with this run's verdicts"
+    )
+
     correct_parser = sub.add_parser("correct", help="test a damped-revision correction")
     correct_parser.add_argument(
         "--train-fraction",
@@ -411,6 +466,8 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return compare(args.root)
     if args.command == "revisions":
         return revisions(args.root)
+    if args.command == "gate":
+        return gate(args.root, args.record, args.update)
     if args.command == "correct":
         return correct(args.root, args.train_fraction)
     if args.command == "audit":

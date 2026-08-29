@@ -20,11 +20,10 @@ Built: the API client, the parsers, schema validation, raw snapshot storage, the
 command-line interface, the scheduled capture workflow, a daily contract check
 against the live API, the loader that joins issued forecasts to the outcomes
 they were forecasting, two seasonal baselines, the scoring harness, feature
-construction, the scheduling and regret evaluation, the revision analysis, and a
-damped-revision correction.
+construction, the scheduling and regret evaluation, the revision analysis, a
+damped-revision correction, and the promotion gate that keeps checking it.
 
-Not built: the promotion gate, drift monitoring, and the published evaluation
-report.
+Not built: drift monitoring and the published evaluation report.
 
 ## Data
 
@@ -43,10 +42,15 @@ Three endpoints are captured every half hour:
 | `/generation` | Fuel shares for the period in progress |
 | `/generation/{from}/{to}` | Fuel shares for the past 24 hours |
 
-Capture is scheduled hourly and delivered less often than that: GitHub queues
-scheduled workflows at low priority and drops them under load. Because each run
-re-harvests the past day, a missed run costs forecast vintages but no outcomes.
-The observed delivery rate is recorded in `docs/design.md`.
+Capture is scheduled hourly and delivered far less often: GitHub queues
+scheduled workflows at low priority and drops them under load. Delivery fell
+from around 38 runs a day in the first week to 2 a day in the second, and
+reducing the nominal cadence from half-hourly to hourly did not change it.
+Because each run re-harvests the past day, a missed run costs forecast vintages
+but no outcomes, so the outcome record is complete while the vintage record is
+not. The revision and correction analyses therefore rest on 20-26 August, when
+capture was dense. The measurement and what was ruled out are in
+`docs/design.md`.
 
 Raw responses are written verbatim under `data/raw/YYYY/MM/DD/`, each wrapped in
 an envelope recording the endpoint requested and the time the response arrived.
@@ -129,6 +133,7 @@ gridcast schedule --periods 4 --window 24                # score decision qualit
 gridcast audit --periods 4 --window 24                   # inspect that comparison
 gridcast revisions                                       # how forecasts move over time
 gridcast correct                                         # test a damped-revision correction
+gridcast gate                                            # check the correction still holds
 ```
 
 Backfill splits its range into fourteen-day windows, the maximum the range
@@ -213,6 +218,26 @@ fewer than thirty observations are left uncorrected rather than fitted on noise.
 Each improvement carries a 95% interval from a paired bootstrap resampled by
 target period. A band is worth believing only where the lower bound is above
 zero; a point estimate on its own cannot distinguish a real gain from none.
+
+## The promotion gate
+
+A correction is not established by having been significant once. The coefficient
+was fitted on four days of late August, and whether it describes the published
+forecast or that week's weather is a question only time answers.
+
+`gridcast gate` refits on the current record and promotes a band only if the
+improvement's interval excludes zero, the band carries enough held-out
+observations and enough distinct target periods, and the refitted coefficient is
+close to the one it replaces. That last condition is the one an interval cannot
+supply: a coefficient swinging from 0.46 to 0.93 between refits describes the
+sample rather than the forecast, however tight its interval.
+
+The verdict is stored in `docs/promoted.json` and the workflow runs weekly. It
+fails the build only when a band that *had* been promoted no longer qualifies —
+including one that disappears from the evaluation entirely, which leaves its
+recorded coefficient standing on nothing. A band that has never qualified
+failing again is the normal state, and failing the build for that would make it
+red from the first run and teach everyone to ignore it.
 
 ## Known gaps in the record
 

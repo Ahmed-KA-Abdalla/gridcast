@@ -1,0 +1,73 @@
+{
+ "coefficients": {},
+ "generated": "2026-08-29T11:59:36.678757+00:00",
+ "verdicts": [
+  {
+   "band": "(0, 3]",
+   "damping": 0.43636123970797686,
+   "improvement": -2.764639627856024,
+   "improvement_low": -4.545053642087547,
+   "n": 71,
+   "periods": 58,
+   "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "71 observations, needs 100",
+    "interval includes zero (low -4.545)"
+   ]
+  },
+  {
+   "band": "(12, 24]",
+   "damping": 0.9152218477953611,
+   "improvement": -1.3183714490556362,
+   "improvement_low": -2.402242605040698,
+   "n": 226,
+   "periods": 113,
+   "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -2.402)"
+   ]
+  },
+  {
+   "band": "(24, 48]",
+   "damping": 0.7284771897915275,
+   "improvement": 0.30655290770555155,
+   "improvement_low": -0.18594078933806804,
+   "n": 304,
+   "periods": 95,
+   "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -0.186)"
+   ]
+  },
+  {
+   "band": "(3, 6]",
+   "damping": 0.47513826037625584,
+   "improvement": -1.1857936506164677,
+   "improvement_low": -2.6129329836991326,
+   "n": 70,
+   "periods": 55,
+   "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "70 observations, needs 100",
+    "interval includes zero (low -2.613)"
+   ]
+  },
+  {
+   "band": "(6, 12]",
+   "damping": 0.46506830659986936,
+   "improvement": 0.19156876156661795,
+   "improvement_low": -0.608600001813848,
+   "n": 126,
+   "periods": 85,
+   "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -0.609)"
+   ]
+  }
+ ]
+}
