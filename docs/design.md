@@ -328,10 +328,22 @@ coefficients barely moved, 0.44, 0.48 and 0.47 against 0.44, 0.47 and 0.46 the
 day before. It is a held-out sample too thin to detect anything, and the
 intervals correctly declining to claim otherwise.
 
-Two things follow. The split should divide on the date that balances rows rather
-than the date at a fixed position, so a changing capture rate cannot silently
-starve one half. And the coefficients' stability across two very different test
-samples is mild evidence for the correction, which no single run reports.
+Both consequences were acted on. The split now chooses the date boundary that
+puts the requested share of *rows* on the training side, rather than the date at
+a fixed position, so a changing capture rate cannot silently starve one half.
+The boundary is still a date, so no target period straddles the split and the
+independence argument is unaffected. Days are indivisible, so the requested
+fraction is rarely exactly attainable and the nearest achievable boundary is
+taken.
+
+And the gate now keeps every run's fitted coefficient, promoted or not, so that
+stability over time is visible. A coefficient settling near one value across
+refits is evidence no single run can give, since one run's interval speaks only
+to that run's sample. A coefficient wandering is the opposite, and it will not
+always trip the drift check, which compares consecutive runs rather than the
+trend. Coefficients from bands that failed are kept as well: whether a failing
+band's coefficient is stable is what later distinguishes too little data from no
+effect at all.
 
 ## The promotion gate
 

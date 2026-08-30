@@ -38,6 +38,10 @@ from .storage import DEFAULT_ROOT
 #: Where the promoted coefficients are kept between runs.
 DEFAULT_RECORD = Path("docs/promoted.json")
 
+#: Runs of coefficient history retained. Enough to see whether a coefficient is
+#: settling or drifting, without the file growing without bound.
+HISTORY_LENGTH = 24
+
 
 @dataclass(frozen=True)
 class Thresholds:
@@ -80,15 +84,69 @@ def load_record(path: Path = DEFAULT_RECORD) -> dict[str, float]:
     return {band: float(value) for band, value in stored.get("coefficients", {}).items()}
 
 
+def load_history(path: Path = DEFAULT_RECORD) -> list[dict]:
+    """Every retained run's coefficients, oldest first."""
+    if not path.exists():
+        return []
+    try:
+        stored = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    history = stored.get("history", [])
+    return history if isinstance(history, list) else []
+
+
+def coefficient_history(path: Path = DEFAULT_RECORD) -> pd.DataFrame:
+    """Each band's fitted coefficient across runs.
+
+    A coefficient settling near one value over successive refits is evidence no
+    single run can give, since one run's interval speaks only to that run's
+    sample. A coefficient wandering is the opposite, and it will not always trip
+    the drift check, which compares consecutive runs rather than the trend.
+    """
+    history = load_history(path)
+    if not history:
+        return pd.DataFrame()
+
+    rows = []
+    for entry in history:
+        for band, value in entry.get("fitted", {}).items():
+            rows.append({"generated": entry.get("generated"), "band": band, "damping": value})
+    if not rows:
+        return pd.DataFrame()
+
+    frame = pd.DataFrame(rows)
+    return frame.pivot_table(index="band", columns="generated", values="damping")
+
+
 def write_record(
     verdicts: list[BandVerdict], path: Path = DEFAULT_RECORD, generated: str | None = None
 ) -> Path:
-    """Store the promoted coefficients for the next run to compare against."""
+    """Store the promoted coefficients, and append this run to the history.
+
+    Both the promoted coefficients and every band's fitted coefficient are
+    kept. A band that fails its interval still yields a coefficient, and whether
+    that coefficient is stable is exactly what tells you later whether the band
+    was failing for want of data or for want of an effect.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = generated or pd.Timestamp.now(tz="UTC").isoformat()
+
+    history = load_history(path)
+    history.append(
+        {
+            "generated": stamp,
+            "fitted": {v.band: v.damping for v in verdicts},
+            "promoted": [v.band for v in verdicts if v.promoted],
+        }
+    )
+    history = history[-HISTORY_LENGTH:]
+
     payload = {
-        "generated": generated or pd.Timestamp.now(tz="UTC").isoformat(),
+        "generated": stamp,
         "coefficients": {v.band: v.damping for v in verdicts if v.promoted},
         "verdicts": [asdict(v) for v in verdicts],
+        "history": history,
     }
     path.write_text(json.dumps(payload, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return path

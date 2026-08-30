@@ -126,22 +126,34 @@ def apply_damping(frame: pd.DataFrame, damping: Damping) -> pd.DataFrame:
 
 
 def split_by_date(frame: pd.DataFrame, train_fraction: float = 0.6) -> tuple[pd.DataFrame, ...]:
-    """Divide into earlier and later dates.
+    """Divide into earlier and later dates, balanced by rows rather than by date.
 
-    By date rather than by row: rows sharing a target period are not
-    independent, and a random split would put a period's early revisions in
+    The boundary is still a date, because rows sharing a target period are not
+    independent and a row-wise split would put a period's early revisions in
     training and its later ones in test.
+
+    Which date, though, is chosen so that the training side holds about
+    ``train_fraction`` of the rows. Taking the date at a fixed position instead
+    assumes every day contributes equally, and this record's days do not: when
+    capture fell from around 38 runs a day to 2, sixty per cent of the dates
+    became ninety-one per cent of the rows and the held-out half was starved to
+    the point where nothing could be detected in it. A date-position split makes
+    every downstream result depend on the capture schedule.
     """
     if frame.empty:
         return frame, frame
 
-    dates = np.sort(frame["date"].unique())
-    if len(dates) < 2:
+    counts = frame.groupby("date").size().sort_index()
+    if len(counts) < 2:
         return frame, frame.iloc[0:0]
 
-    cut = max(1, int(len(dates) * train_fraction))
-    cut = min(cut, len(dates) - 1)
-    boundary = dates[cut]
+    # Rows on the training side for each candidate boundary, as a share of all.
+    shares = counts.cumsum() / counts.sum()
+    # Every candidate but the last, so the test side is never empty.
+    candidates = shares.iloc[:-1]
+    boundary_index = int((candidates - train_fraction).abs().to_numpy().argmin())
+    boundary = counts.index[boundary_index + 1]
+
     return frame[frame["date"] < boundary], frame[frame["date"] >= boundary]
 
 

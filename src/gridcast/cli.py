@@ -24,6 +24,7 @@ from .correction import evaluate_with_intervals
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .gate import (
     DEFAULT_RECORD,
+    coefficient_history,
     evaluate_gate,
     gate_passes,
     load_record,
@@ -393,6 +394,17 @@ def gate(root: Path, record: Path, update: bool) -> int:
         )
         for reason in item.reasons:
             print(f"{'':>12}  - {reason}")
+
+    history = coefficient_history(record)
+    if not history.empty and history.shape[1] > 1:
+        print("\nfitted coefficient by run")
+        print(history.round(2).to_string())
+        spread = (history.max(axis=1) - history.min(axis=1)).round(2)
+        print("\nrange across runs:")
+        print(spread.to_string())
+        print("A coefficient settling near one value across refits is evidence no")
+        print("single run can give; one that wanders is the opposite, and will not")
+        print("always trip the drift check, which only compares consecutive runs.")
 
     passes, message = gate_passes(verdicts, previous)
     print(f"\n{message}")

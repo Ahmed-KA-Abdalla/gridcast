@@ -121,6 +121,48 @@ def test_the_split_is_by_date_not_by_row():
     assert max(train["date"]) < min(test["date"])
 
 
+def test_the_split_balances_rows_when_days_are_uneven():
+    # The fault this replaced: a fixed fraction of dates is not a fixed fraction
+    # of rows. Here four dense days precede four sparse ones, so taking the
+    # first 60% of dates would hand almost everything to training.
+    dates = []
+    for day in range(1, 5):
+        dates.extend([dt.date(2026, 8, day)] * 100)
+    for day in range(5, 9):
+        dates.extend([dt.date(2026, 8, day)] * 5)
+
+    frame = frame_from([1.0] * len(dates), [1.0] * len(dates), dates=dates)
+    train, test = split_by_date(frame, train_fraction=0.6)
+
+    share = len(train) / len(frame)
+    assert 0.5 < share < 0.75
+    # Still a clean date boundary, so no period straddles the split.
+    assert max(train["date"]) < min(test["date"])
+
+
+def test_the_split_lands_on_the_closest_achievable_boundary():
+    # Days are indivisible, so the requested fraction is rarely exactly
+    # attainable; the boundary chosen should be the nearest one.
+    dates = []
+    for day in range(1, 5):
+        dates.extend([dt.date(2026, 8, day)] * 10)
+
+    frame = frame_from([1.0] * 40, [1.0] * 40, dates=dates)
+    train, _ = split_by_date(frame, train_fraction=0.5)
+    assert len(train) == 20
+
+
+def test_the_split_still_divides_evenly_when_days_are_equal():
+    dates = []
+    for day in range(1, 11):
+        dates.extend([dt.date(2026, 8, day)] * 10)
+
+    frame = frame_from([1.0] * 100, [1.0] * 100, dates=dates)
+    train, test = split_by_date(frame, train_fraction=0.6)
+    assert len(train) == 60
+    assert len(test) == 40
+
+
 def test_the_split_always_holds_something_out():
     dates = [dt.date(2026, 8, day) for day in (1, 2)]
     frame = frame_from([1.0, 2.0], [1.0, 2.0], dates=dates)

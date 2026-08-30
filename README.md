@@ -232,6 +232,15 @@ close to the one it replaces. That last condition is the one an interval cannot
 supply: a coefficient swinging from 0.46 to 0.93 between refits describes the
 sample rather than the forecast, however tight its interval.
 
+Every run's fitted coefficient is kept, promoted or not, so that stability
+across refits is visible: one run's interval speaks only to that run's sample,
+and a coefficient settling near one value over time is evidence of a different
+kind.
+
+The train-test split divides on the date that balances rows rather than the date
+at a fixed position, because this record's days are wildly uneven in size and a
+date-position split makes every result depend on the capture schedule.
+
 The verdict is stored in `docs/promoted.json` and the workflow runs weekly. It
 fails the build only when a band that *had* been promoted no longer qualifies —
 including one that disappears from the evaluation entirely, which leaves its

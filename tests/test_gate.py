@@ -221,3 +221,72 @@ def test_a_promoted_band_that_vanishes_from_the_evaluation_fails_the_build():
 
     assert not passes
     assert "no longer evaluated" in message
+
+
+# -- coefficient history --------------------------------------------------
+
+
+def test_the_history_accumulates_across_runs(record_path):
+    from gridcast.gate import coefficient_history, write_record
+
+    write_record([verdict("(6, 12]", True)], path=record_path, generated="2026-08-29T00:00:00Z")
+    write_record([verdict("(6, 12]", True)], path=record_path, generated="2026-08-30T00:00:00Z")
+
+    history = coefficient_history(record_path)
+    assert history.shape == (1, 2)
+    assert history.loc["(6, 12]"].tolist() == [0.45, 0.45]
+
+
+def test_the_history_keeps_bands_that_were_not_promoted(record_path):
+    # A failing band still yields a coefficient, and whether it is stable is
+    # what later distinguishes too little data from no effect.
+    from gridcast.gate import coefficient_history, write_record
+
+    write_record(
+        [verdict("(0, 3]", promoted=False, reasons=["interval includes zero"])],
+        path=record_path,
+        generated="2026-08-29T00:00:00Z",
+    )
+    history = coefficient_history(record_path)
+    assert "(0, 3]" in history.index
+
+
+def test_the_history_is_capped(record_path):
+    from gridcast.gate import HISTORY_LENGTH, coefficient_history, write_record
+
+    for day in range(HISTORY_LENGTH + 6):
+        write_record(
+            [verdict("(6, 12]", True)],
+            path=record_path,
+            generated=f"2026-09-{day + 1:02d}T00:00:00Z",
+        )
+
+    assert coefficient_history(record_path).shape[1] == HISTORY_LENGTH
+
+
+def test_the_history_is_empty_before_any_run(record_path):
+    from gridcast.gate import coefficient_history
+
+    assert coefficient_history(record_path).empty
+
+
+def test_a_corrupt_record_yields_no_history_rather_than_raising(record_path):
+    from gridcast.gate import coefficient_history
+
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text("{not json", encoding="utf-8")
+    assert coefficient_history(record_path).empty
+
+
+def test_writing_a_record_preserves_the_earlier_history(record_path):
+    from gridcast.gate import load_record, write_record
+
+    write_record([verdict("(6, 12]", True)], path=record_path, generated="2026-08-29T00:00:00Z")
+    write_record(
+        [verdict("(0, 3]", promoted=False)], path=record_path, generated="2026-08-30T00:00:00Z"
+    )
+
+    # The latest run promoted nothing, so the coefficients are empty, but the
+    # history still carries both runs.
+    assert load_record(record_path) == {}
+    assert len(json.loads(record_path.read_text(encoding="utf-8"))["history"]) == 2
