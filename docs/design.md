@@ -366,6 +366,24 @@ the absence of a row reporting it makes the situation easy to miss.
 On a pull request the gate reports but does not write the record. A branch must
 not be able to promote a coefficient into the record it is being judged against.
 
+## Testing the correction against the project's own claim
+
+The correction is fitted and validated on mean absolute error. The scheduling
+work argues that mean error is not what a decision depends on, since only the
+ordering of periods within a window matters and a constant offset changes no
+ordering. The correction subtracts a share of the latest revision from every
+period in a window, which is close to a shift — so there is a specific reason to
+expect it may improve accuracy while leaving decisions untouched.
+
+The corrected forecast is therefore scheduled beside the published one, on the
+same decisions, and reported as its own row. Only coefficients the gate has
+promoted are applied: correcting with a held-back coefficient would score a
+claim the project does not make.
+
+Rows with no revision pass through unchanged. The first capture of a period has
+revised nothing, and a capture that changed nothing carries no information to
+damp.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

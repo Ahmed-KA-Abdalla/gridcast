@@ -256,3 +256,21 @@ def test_schedule_command_says_so_on_an_empty_store(tmp_path, capsys):
 
     assert main(["--root", str(tmp_path), "schedule"]) == 0
     assert "no settled outcomes" in capsys.readouterr().out
+
+
+def test_the_corrected_forecast_is_scheduled_beside_the_published_one(schedulable_store):
+    # The project's central claim tested against itself: accuracy and decision
+    # quality are different questions, so a correction that improves the first
+    # need not improve the second.
+    from gridcast.evaluate import compare_schedulers
+    from gridcast.scheduling import Load
+
+    scored = compare_schedulers(schedulable_store, Load(periods=2, window_hours=5.0))
+    if "published" not in scored.index or scored.loc["published", "n"] == 0:
+        pytest.skip("fixture produced no scoreable decision")
+
+    assert "corrected" in scored.index
+    # Same decisions, so the same amount was at stake.
+    assert scored.loc["corrected", "mean_available"] == pytest.approx(
+        scored.loc["published", "mean_available"]
+    )

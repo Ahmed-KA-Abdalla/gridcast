@@ -330,3 +330,61 @@ def test_evaluation_with_intervals_marks_which_bands_are_significant(overshootin
     assert note["resamples"] == 300
     # The fixture overshoots by construction, so at least one band should hold up.
     assert summary["significant"].any()
+
+
+# -- the corrected record -------------------------------------------------
+
+
+def test_corrected_record_keeps_the_shape_of_the_published_one(overshooting_store):
+    from gridcast.correction import Damping, corrected_forecast_record
+    from gridcast.load import forecast_record
+
+    published = forecast_record(overshooting_store)
+    corrected = corrected_forecast_record(
+        overshooting_store, Damping({"(0, 3]": 0.5}, {"(0, 3]": 100})
+    )
+
+    assert {"period_start", "captured_at", "forecast", "horizon_hours"} <= set(corrected.columns)
+    assert len(corrected) == len(published)
+
+
+def test_the_correction_moves_the_forecast_against_its_latest_revision():
+    # Built directly rather than through a store, to isolate the arithmetic.
+    from gridcast.correction import (
+        LEAD_BINS,  # noqa: F401
+        Damping,
+    )
+
+    damping = Damping({"(0, 3]": 0.5}, {"(0, 3]": 100})
+    frame = pd.DataFrame(
+        {
+            "period_start": pd.to_datetime(["2026-08-25T12:00Z"] * 2, utc=True),
+            "captured_at": pd.to_datetime(["2026-08-25T10:00Z", "2026-08-25T11:00Z"], utc=True),
+            "forecast": [100.0, 120.0],
+            "horizon_hours": [2.0, 1.0],
+        }
+    )
+    frame["revision"] = [np.nan, 20.0]
+    frame["previous_revision"] = [np.nan, np.nan]
+    frame["issue_index"] = [0, 1]
+
+    band = pd.cut(frame["horizon_hours"], bins=list(LEAD_BINS), right=True).astype(str)
+    factors = band.map(damping.for_band).fillna(0.0)
+    corrected = frame["forecast"] - factors * frame["revision"].fillna(0.0)
+
+    # First capture revised nothing, so it passes through; the second revised
+    # upwards by 20 and so is pulled back by half of it.
+    assert corrected.tolist() == [100.0, 110.0]
+
+
+def test_a_band_without_a_promoted_coefficient_is_left_alone(overshooting_store):
+    from gridcast.correction import Damping, corrected_forecast_record
+    from gridcast.load import forecast_record
+
+    published = forecast_record(overshooting_store)
+    untouched = corrected_forecast_record(overshooting_store, Damping({}, {}))
+
+    merged = published.merge(
+        untouched, on=["period_start", "captured_at"], suffixes=("_published", "_corrected")
+    )
+    assert np.allclose(merged["forecast_published"], merged["forecast_corrected"])

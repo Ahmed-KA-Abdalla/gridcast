@@ -248,6 +248,19 @@ recorded coefficient standing on nothing. A band that has never qualified
 failing again is the normal state, and failing the build for that would make it
 red from the first run and teach everyone to ignore it.
 
+## Does the correction help the decision?
+
+The correction is validated on mean absolute error. This project's whole premise
+is that accuracy is not what a scheduler consumes, so the correction has to face
+its own test: `gridcast schedule` scores a `corrected` row beside the published
+forecast, on identical decisions, using whatever coefficient the gate has
+promoted. An improvement in accuracy that does not survive into decision quality
+would be a result rather than an embarrassment — it is exactly what the opening
+claim of this repository predicts is possible.
+
+Only promoted coefficients are applied. Correcting with a coefficient the gate
+has held back would be scoring a claim the project does not make.
+
 ## Known gaps in the record
 
 A single 16-hour outage in the intensity series on 12 June 2024. Everything else

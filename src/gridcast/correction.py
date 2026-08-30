@@ -287,3 +287,34 @@ def evaluate_with_intervals(
         "resamples": resamples,
     }
     return summary, damping, note
+
+
+def corrected_forecast_record(
+    root: Path = DEFAULT_ROOT, damping: Damping | None = None
+) -> pd.DataFrame:
+    """The forecast record with the damping applied, ready to be scheduled on.
+
+    Returned in the same shape as ``load.forecast_record`` so that a corrected
+    forecast and the published one go through one scoring path. Rows with no
+    revision — the first capture of a period, and captures that changed nothing
+    — are passed through unchanged, since there is nothing to damp.
+
+    ``damping`` defaults to whatever the gate has promoted. Applying an
+    unpromoted coefficient would be scoring a correction the project does not
+    claim.
+    """
+    from .gate import load_record  # imported here to keep the module acyclic
+
+    paths = revision_paths(root)
+    if paths.empty:
+        return paths
+
+    if damping is None:
+        promoted = load_record()
+        damping = Damping(promoted, dict.fromkeys(promoted, 0))
+
+    frame = paths.copy()
+    frame["band"] = pd.cut(frame["horizon_hours"], bins=list(LEAD_BINS), right=True).astype(str)
+    factors = frame["band"].map(damping.for_band).fillna(0.0)
+    frame["forecast"] = frame["forecast"] - factors * frame["revision"].fillna(0.0)
+    return frame.drop(columns=["revision", "previous_revision", "issue_index", "band"])

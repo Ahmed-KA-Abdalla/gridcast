@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from .baseline import add_baselines, seasonal_mean, seasonal_naive
+from .correction import corrected_forecast_record
 from .load import evaluation_frame, forecast_record, outcome_record
 from .scheduling import (
     Load,
@@ -162,6 +163,13 @@ def compare_schedulers(root: Path = DEFAULT_ROOT, load: Load | None = None) -> p
     if not published.empty:
         decisions = evaluate_decisions(published, outcomes, load)
         rows["published"] = summarise(decisions)
+
+        # The project's own claim, tested against itself: the correction
+        # improves accuracy at 6-12 hours, and accuracy is not what a scheduler
+        # consumes. Scored on the same decisions as the published forecast.
+        corrected = corrected_forecast_record(root)
+        if not corrected.empty:
+            rows["corrected"] = summarise(evaluate_decisions(corrected, outcomes, load))
 
         # The same issue times, so the baselines face the same windows.
         if not decisions.empty:
