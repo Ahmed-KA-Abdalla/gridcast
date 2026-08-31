@@ -279,8 +279,14 @@ nothing in the code path is responsible.
 
 The cadence was reduced to hourly on that evidence, on the hypothesis that a
 lower nominal rate is deprioritised less aggressively. It delivered the same two
-runs a day, so the hypothesis was wrong and the ask was not the constraint. Two
-a day is what free scheduled Actions gives this repository.
+runs a day at first, so the hypothesis gained no support.
+
+The rate then recovered without further intervention: 5 runs on 30 August and 4
+on the 31st. So delivery is erratic rather than monotonically declining, and the
+earlier reading of a permanent throttle was wrong. What can be said is that the
+delivered rate varies between roughly 2 and 38 runs a day for the same nominal
+schedule, that it is not controlled by the nominal cadence, and that it cannot
+be relied upon.
 
 The consequence is stated rather than worked around. Moving capture to a machine
 under our own control would restore the rate, but the extra data would be
