@@ -390,6 +390,44 @@ Rows with no revision pass through unchanged. The first capture of a period has
 revised nothing, and a capture that changed nothing carries no information to
 damp.
 
+## A decision dataset over the whole record
+
+Everything scheduled so far has been a decision the published forecast faced:
+under two hundred, all from one fortnight. That supports comparing forecasters
+and not fitting one. The harness generates a decision at four issue times a day
+across the settled record instead — thousands, spanning both seasons — using
+features rather than the published forecast, so it needs no captured vintages.
+
+The frame is long rather than wide: one row per period per decision. A model
+that orders periods within a window needs them as separate rows to rank, and a
+decision is recovered by grouping.
+
+Features can be expressed as deviations from their own window's mean. A
+scheduler compares periods within one window and never across windows, so the
+level of a window carries nothing it can use. Leaving features absolute invites
+a model to spend its capacity predicting the level, which is the objective this
+project has already shown does not reach the decision.
+
+The harness was written to be checked before it was used. Scoring the seasonal
+baselines through it must reproduce what the existing scheduling path reports
+for the same issue times and load, and it now does exactly: 965 decisions, mean
+regret 17.279 and 12.486, captured fraction 0.808 and 0.857.
+
+It did not at first, and the discrepancy was worth having. The harness reported
+972 decisions against the older path's 965 while generating a strict subset of
+its issue times, which cannot both be true. The cause was that missing baseline
+predictions were being filled with zero. A seasonal baseline has no reference
+for the first three weeks of the record, and filling those with zero told the
+scheduler that carbon intensity there was as low as it can be, so it would
+schedule into them. Missing predictions are now left missing and the scorer
+drops any decision it cannot fully cover, which is what the existing path always
+did. Had the check been skipped, every later comparison would have been against
+an inflated baseline.
+
+Two decisions are absent from both paths: one at the start of the record and one
+across the 16-hour outage of 12 June 2024, in each case because the window is
+incomplete.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
