@@ -21,6 +21,7 @@ from .audit import (
 )
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
 from .correction import evaluate_with_intervals
+from .decisions import DEFAULT_ISSUE_HOURS, decision_dataset, score_through_harness
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .gate import (
     DEFAULT_RECORD,
@@ -415,6 +416,48 @@ def gate(root: Path, record: Path, update: bool) -> int:
     return 0 if passes else 1
 
 
+def decisions(root: Path, load: Load, issue_hours: tuple[int, ...]) -> int:
+    """Build the decision dataset and score the baselines through it.
+
+    This exists first to be checked rather than used. Scoring a baseline through
+    the new harness must reproduce what the existing scheduling path reports for
+    the same issue times and the same load; if it does not, the harness is wrong
+    and anything fitted on it would be noise.
+    """
+    from .baseline import seasonal_mean, seasonal_naive
+    from .load import outcome_record
+
+    frame = decision_dataset(root, load, issue_hours)
+    if frame.empty:
+        print("no complete windows in the settled record")
+        return 0
+
+    outcomes = outcome_record(root)
+    print(f"{frame['decision_id'].nunique()} decisions, {len(frame)} rows")
+    print(
+        f"spanning {frame['date'].min()} to {frame['date'].max()}, "
+        f"issued at {', '.join(f'{hour:02d}:00' for hour in sorted(issue_hours))}"
+    )
+    print(f"decision: {load.describe()}\n")
+
+    rows = {}
+    for name, predictor in (("seasonal_naive", seasonal_naive), ("seasonal_mean", seasonal_mean)):
+        # Missing predictions are left missing. A seasonal baseline cannot
+        # predict the first weeks of the record, having no same-weekday
+        # reference yet, and filling those with a number would hand the
+        # scheduler a fabricated intensity to choose. The scorer drops any
+        # decision it cannot fully predict, which is the same treatment the
+        # existing scheduling path gives them.
+        prediction = predictor(frame, outcomes, as_of="captured_at")
+        rows[name] = score_through_harness(frame, outcomes, load, prediction)
+
+    print(pd.DataFrame(rows).T.round(3).to_string())
+    print("\nThese must match what 'gridcast schedule' reports for the same issue")
+    print("times and load. A difference means the harness disagrees with the")
+    print("scorer the rest of the project uses.")
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -464,6 +507,19 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         help="share of dates used to fit the coefficient",
     )
 
+    decisions_parser = sub.add_parser(
+        "decisions", help="build the decision dataset and score baselines through it"
+    )
+    decisions_parser.add_argument("--periods", type=int, default=4)
+    decisions_parser.add_argument("--window", type=float, default=24.0)
+    decisions_parser.add_argument(
+        "--issue-hours",
+        type=int,
+        nargs="+",
+        default=list(DEFAULT_ISSUE_HOURS),
+        help="hours of the day at which decisions are made",
+    )
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -482,6 +538,12 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         return gate(args.root, args.record, args.update)
     if args.command == "correct":
         return correct(args.root, args.train_fraction)
+    if args.command == "decisions":
+        return decisions(
+            args.root,
+            Load(periods=args.periods, window_hours=args.window),
+            tuple(args.issue_hours),
+        )
     if args.command == "audit":
         return audit(args.root, Load(periods=args.periods, window_hours=args.window))
     if args.command == "schedule":
