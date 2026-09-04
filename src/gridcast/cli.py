@@ -21,7 +21,12 @@ from .audit import (
 )
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
 from .correction import evaluate_with_intervals
-from .decisions import DEFAULT_ISSUE_HOURS, decision_dataset, score_through_harness
+from .decisions import (
+    DEFAULT_ISSUE_HOURS,
+    decision_dataset,
+    score_through_harness,
+    split_decisions,
+)
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .gate import (
     DEFAULT_RECORD,
@@ -32,6 +37,7 @@ from .gate import (
     write_record,
 )
 from .load import coverage, evaluation_frame
+from .models import compare_with_intervals, fit_level_model, permutation_importance
 from .parse import ParseError, parse_generation, parse_intensity
 from .revisions import (
     distinct_revisions,
@@ -458,6 +464,60 @@ def decisions(root: Path, load: Load, issue_hours: tuple[int, ...]) -> int:
     return 0
 
 
+def model(root: Path, load: Load, issue_hours: tuple[int, ...], importance: bool) -> int:
+    """Fit the conventional model and score it on both metrics.
+
+    Gradient boosting trained on squared error of the intensity, which is what
+    forecasting this quantity normally means. It is the control: unless it is
+    scored on accuracy and on decision quality together, a later model cannot be
+    shown to be better because of its objective rather than because it is a
+    model at all.
+    """
+    from .load import outcome_record
+
+    dataset = decision_dataset(root, load, issue_hours)
+    if dataset.empty:
+        print("no complete windows in the settled record")
+        return 0
+
+    outcomes = outcome_record(root)
+    summary, differences, note = compare_with_intervals(dataset, outcomes, load)
+    if summary.empty:
+        print(note.get("reason", "could not fit"))
+        return 0
+
+    print(f"decision: {load.describe()}")
+    print(
+        f"fitted on {note['train_decisions']} decisions, "
+        f"{note['train_span'][0]} to {note['train_span'][1]}"
+    )
+    print(
+        f"scored on {note['test_decisions']} decisions, "
+        f"{note['test_span'][0]} to {note['test_span'][1]}, "
+        f"{note['features']} features\n"
+    )
+    print(summary.round(3).to_string())
+    print("\nmae and rmse are accuracy; captured_fraction is the share of the")
+    print("available saving the scheduler secured. A model can win on one and")
+    print("lose on the other, which is why both are here.")
+
+    if not differences.empty:
+        print("\nreduction in mean regret against each baseline, 95% interval")
+        print(differences.round(3).to_string(index=False))
+        print("Paired and resampled by decision. The baselines themselves move by")
+        print("more between samples than a model typically beats them by, so a")
+        print("difference in the table above is not a result until this one is.")
+
+    if importance:
+        train, test = split_decisions(dataset)
+        fitted, columns = fit_level_model(train)
+        scored = permutation_importance(fitted, test, columns, outcomes, load, repeats=2)
+        print("\nfeature importance, against each metric separately")
+        print(scored.round(4).to_string(index=False))
+
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -520,6 +580,16 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         help="hours of the day at which decisions are made",
     )
 
+    model_parser = sub.add_parser("model", help="fit the conventional model as a control")
+    model_parser.add_argument("--periods", type=int, default=4)
+    model_parser.add_argument("--window", type=float, default=24.0)
+    model_parser.add_argument(
+        "--issue-hours", type=int, nargs="+", default=list(DEFAULT_ISSUE_HOURS)
+    )
+    model_parser.add_argument(
+        "--importance", action="store_true", help="also report feature importance"
+    )
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -543,6 +613,13 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
             args.root,
             Load(periods=args.periods, window_hours=args.window),
             tuple(args.issue_hours),
+        )
+    if args.command == "model":
+        return model(
+            args.root,
+            Load(periods=args.periods, window_hours=args.window),
+            tuple(args.issue_hours),
+            args.importance,
         )
     if args.command == "audit":
         return audit(args.root, Load(periods=args.periods, window_hours=args.window))
