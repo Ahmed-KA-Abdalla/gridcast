@@ -1,0 +1,93 @@
+{
+ "captured_at": "2026-09-06T18:56:45.150220+00:00",
+ "endpoint": "/intensity/2026-09-06T18:56Z/fw48h",
+ "envelope_version": 2,
+ "kind": "forecast_fw48h",
+ "licence": "CC BY 4.0",
+ "payload": {
+  "data": [
+   {
+    "from": "2026-09-06T18:30Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 54,
+     "index": "low"
+    },
+    "to": "2026-09-06T19:00Z"
+   },
+   {
+    "from": "2026-09-06T19:00Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 54,
+     "index": "low"
+    },
+    "to": "2026-09-06T19:30Z"
+   },
+   {
+    "from": "2026-09-06T19:30Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 59,
+     "index": "low"
+    },
+    "to": "2026-09-06T20:00Z"
+   },
+   {
+    "from": "2026-09-06T20:00Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 62,
+     "index": "low"
+    },
+    "to": "2026-09-06T20:30Z"
+   },
+   {
+    "from": "2026-09-06T20:30Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 63,
+     "index": "low"
+    },
+    "to": "2026-09-06T21:00Z"
+   },
+   {
+    "from": "2026-09-06T21:00Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 65,
+     "index": "low"
+    },
+    "to": "2026-09-06T21:30Z"
+   },
+   {
+    "from": "2026-09-06T21:30Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 66,
+     "index": "low"
+    },
+    "to": "2026-09-06T22:00Z"
+   },
+   {
+    "from": "2026-09-06T22:00Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 68,
+     "index": "low"
+    },
+    "to": "2026-09-06T22:30Z"
+   },
+   {
+    "from": "2026-09-06T22:30Z",
+    "intensity": {
+     "actual": null,
+     "forecast": 66,
+     "index": "low"
+    },
+    "to": "2026-09-06T23:00Z"
+   }
+  ]
+ },
+ "source": "NESO Carbon Intensity API"
+}
