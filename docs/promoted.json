@@ -1,10 +1,9 @@
 {
  "coefficients": {
-  "(24, 48]": 0.8036887064116328,
-  "(3, 6]": 0.4699035385754974,
-  "(6, 12]": 0.46011569310096495
+  "(0, 3]": 0.4015153035710647,
+  "(3, 6]": 0.45466465774597065
  },
- "generated": "2026-09-07T13:35:35.347718+00:00",
+ "generated": "2026-09-20T21:13:36.715607+00:00",
  "history": [
   {
    "fitted": {
@@ -47,67 +46,83 @@
     "(3, 6]",
     "(6, 12]"
    ]
+  },
+  {
+   "fitted": {
+    "(0, 3]": 0.4015153035710647,
+    "(12, 24]": 0.000822436279455726,
+    "(24, 48]": 0.844849071826351,
+    "(3, 6]": 0.45466465774597065,
+    "(6, 12]": 0.45610069979653345
+   },
+   "generated": "2026-09-20T21:13:36.715607+00:00",
+   "promoted": [
+    "(0, 3]",
+    "(3, 6]"
+   ]
   }
  ],
  "verdicts": [
   {
    "band": "(0, 3]",
-   "damping": 0.4348171735407181,
-   "improvement": -0.3492085557092075,
-   "improvement_low": -1.1405667483420558,
-   "n": 345,
-   "periods": 242,
+   "damping": 0.4015153035710647,
+   "improvement": 1.4461713594537589,
+   "improvement_low": 0.7766179604448088,
+   "n": 541,
+   "periods": 522,
    "previous_damping": null,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -1.141)"
-   ]
-  },
-  {
-   "band": "(12, 24]",
-   "damping": 0.9117093246158623,
-   "improvement": -0.3428003578246468,
-   "improvement_low": -0.70972219921208,
-   "n": 1103,
-   "periods": 396,
-   "previous_damping": null,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -0.710)"
-   ]
-  },
-  {
-   "band": "(24, 48]",
-   "damping": 0.8036887064116328,
-   "improvement": 0.44258846412455455,
-   "improvement_low": 0.25766054614580847,
-   "n": 1780,
-   "periods": 423,
-   "previous_damping": 0.5931571924081339,
    "promoted": true,
    "reasons": []
   },
   {
-   "band": "(3, 6]",
-   "damping": 0.4699035385754974,
-   "improvement": 0.7672255271875557,
-   "improvement_low": 0.09638423733876376,
-   "n": 339,
-   "periods": 235,
+   "band": "(12, 24]",
+   "damping": 0.000822436279455726,
+   "improvement": 0.00033116007324096586,
+   "improvement_low": 7.963085792133218e-05,
+   "n": 1731,
+   "periods": 754,
    "previous_damping": null,
+   "promoted": false,
+   "reasons": [
+    "improvement too small to claim (low 0.000, needs 0.10)"
+   ]
+  },
+  {
+   "band": "(24, 48]",
+   "damping": 0.844849071826351,
+   "improvement": 0.04655930147090359,
+   "improvement_low": -0.10977080611077017,
+   "n": 2551,
+   "periods": 760,
+   "previous_damping": 0.8036887064116328,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -0.110)"
+   ]
+  },
+  {
+   "band": "(3, 6]",
+   "damping": 0.45466465774597065,
+   "improvement": 1.932105694349186,
+   "improvement_low": 1.2962989116793553,
+   "n": 517,
+   "periods": 498,
+   "previous_damping": 0.4699035385754974,
    "promoted": true,
    "reasons": []
   },
   {
    "band": "(6, 12]",
-   "damping": 0.46011569310096495,
-   "improvement": 0.3318808349399234,
-   "improvement_low": 0.004808659283714239,
-   "n": 611,
-   "periods": 321,
-   "previous_damping": 0.4579126501239481,
-   "promoted": true,
-   "reasons": []
+   "damping": 0.45610069979653345,
+   "improvement": 0.24112663256725142,
+   "improvement_low": -0.049453391630219425,
+   "n": 970,
+   "periods": 700,
+   "previous_damping": 0.46011569310096495,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -0.049)"
+   ]
   }
  ]
 }
