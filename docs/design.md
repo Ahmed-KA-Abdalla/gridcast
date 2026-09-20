@@ -428,6 +428,42 @@ Two decisions are absent from both paths: one at the start of the record and one
 across the 16-hour outage of 12 June 2024, in each case because the window is
 incomplete.
 
+## Significance is not magnitude
+
+The gate promoted a band whose coefficient was 0.0008. The correction it applied
+was therefore almost nothing, its improvement was 0.0003 gCO2/kWh, and because
+the correction was so small its variance was small in proportion — so the
+bootstrap interval cleared zero and the band passed every condition.
+
+The condition was wrong rather than the arithmetic. An interval excluding zero
+establishes that an effect exists, not that it is large enough to be worth
+claiming, and the two come apart exactly where the effect is negligible. The
+threshold is now a tenth of a gCO2/kWh on the lower bound, which is under one
+per cent of the published forecast's error at any lead, and a coefficient of
+exactly zero is rejected separately so the reason given names the real problem.
+
+## Results that moved with the sample
+
+Two figures in this repository reversed when the matched sample grew from 195
+decisions to 303.
+
+The published forecast and the seasonal baseline changed places on decision
+quality: the baseline led at 93.6% against 92.4%, and now trails at 87.5%
+against 90.7%. And the correction, which changed no decisions at all on the
+smaller sample, now shows a small advantage.
+
+Neither reversal indicates a fault. Both are what a few hundred decisions
+support, which is not much. They are recorded because the earlier numbers were
+stated in this repository with more confidence than they turned out to deserve,
+and because the pattern is the same one the promotion gate exists to catch: an
+effect that clears a threshold on one sample and not the next is an effect whose
+size is comparable to the noise.
+
+What has not moved is the fitted coefficient. Across five refits and every band
+under twelve hours it sits between 0.40 and 0.46. What moves is which band
+reaches significance, which is a statement about sample size rather than about
+the forecast.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

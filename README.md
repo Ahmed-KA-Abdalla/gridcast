@@ -23,49 +23,61 @@ realised values, so that the two can be scored against each other.
 
 ## What it found
 
-All figures below are for a two-hour deferrable load with twenty-four hours of
-slack, over 184 to 198 captured decisions in late August 2026. The samples are
-small and one season only; the last section says what else is missing.
+All figures are for a two-hour deferrable load with twenty-four hours of slack,
+over 303 decisions the published forecast faced between 20 August and 20
+September 2026, unless stated otherwise. The sample is small and one season
+only; the last section says what else is missing.
 
-**Deferring works, and the published forecast captures nearly all of the
-benefit.** Scheduling on the forecast rather than running immediately saved 39.5
-gCO2/kWh averaged over the load, around 15% of a typical GB intensity. Against
-perfect hindsight it secured 92.5% of the saving that was available.
+Several of these figures moved when the sample grew from 195 decisions to 303,
+and two reversed. Where that happened it is stated, because a result that
+changes with a third more data is one to hold loosely.
 
-**Most of that benefit comes from the daily shape, not from the weather.** A
-seasonal baseline — the mean intensity at the same half-hour of the last three
-same weekdays, which knows nothing about wind — captured 94.6% on the same
-decisions. It is not that the published forecast is poor: it is three times more
-accurate than the baseline by mean absolute error. It is that accuracy in excess
-of the daily and weekly pattern buys very little for this decision.
+**Deferring works.** Scheduling on the published forecast rather than running
+immediately saved 37.7 gCO2/kWh averaged over the load, around 15% of a typical
+GB intensity. Against perfect hindsight it secured 90.7% of the saving that was
+available.
 
-**The published forecast overshoots at medium lead.** Successive revisions are
-anticorrelated at -0.51, and a revision is negatively correlated with the error
-still remaining at -0.50 in the six-to-twelve-hour band. Median total movement
-of a forecast is 117.5 gCO2/kWh against median net movement of 12, so most of
-what it does is later undone. Subtracting 46% of the most recent revision cuts
-mean absolute error in that band by about 5%, out of sample: an improvement of
-1.05 gCO2/kWh with a bootstrap interval of +0.65 to +1.40, over 571 held-out
-observations across 186 target periods. The coefficient has come out at 0.46,
-0.46 and 0.47 across three refits on different splits.
+**The published forecast beats a seasonal baseline on decisions, by about as
+much as it does on accuracy.** A baseline taking the mean intensity at the same
+half-hour of the last three same weekdays — which knows nothing about wind —
+secured 87.5% on the same decisions, against the forecast's 90.7%. On the
+smaller sample this was the other way round, with the baseline ahead at 93.6%
+against 92.4%; the reversal is the clearest illustration in this repository of
+how far a result can move on two hundred decisions.
 
-**That improvement changes no decisions.** Scheduled on identical decisions, the
-corrected forecast chose the same window every time for a contiguous load — hit
-rate identical to three decimals. For an interruptible load, which can pick
-individual periods rather than a block, it changed a few and made them slightly
-worse, moving the hit rate from 0.338 to 0.323. Damping subtracts a similar
-amount from every period in a window, and a near-uniform shift changes little
-ordering.
+**Most of the achievable benefit is available without any weather information
+at all.** Whichever way the two rank, the gap between them is a few percentage
+points while the gap between doing nothing and deferring is fifteen per cent of
+intensity. The daily and weekly pattern carries most of what a scheduler needs.
 
-Taken together: for a carbon-aware scheduler, effort spent on more accurate
-intensity forecasting is not where the remaining value is. Effort spent on
-giving loads more slack is — a six-hour window offers only 38 gCO2/kWh of
-available saving against 91 at twenty-four hours.
+**The published forecast overshoots at short lead.** Successive revisions are
+anticorrelated at about -0.5, and median total movement of a forecast is 117.5
+gCO2/kWh against median net movement of 12, so most of what it does is later
+undone. Subtracting a fitted share of the most recent revision reduces error out
+of sample: 1.45 gCO2/kWh in the zero-to-three-hour band with a bootstrap
+interval of +0.78, and 1.93 in three-to-six with a lower bound of +1.30.
 
-**Four of five lead bands showed no correction at all.** Only six-to-twelve
-hours survives the promotion gate. The three-to-six-hour band cleared on 28
-August and no longer does, which is what a borderline effect looks like when the
-split moves.
+**Which band survives has moved.** The six-to-twelve-hour band cleared on three
+successive refits and no longer does, at +0.24 with a lower bound of -0.05. The
+short bands now clear instead. The fitted coefficients have been stable
+throughout — 0.40 to 0.46 across every band under twelve hours, across five
+refits — so what moves is which band reaches significance, not the size of the
+effect.
+
+**The correction's effect on decisions is small and may be nothing.** On 303
+decisions the corrected forecast secured 91.5% against the published forecast's
+90.7%, with mean regret 7.24 against 7.81. On the earlier sample it changed no
+decisions at all. There is no interval on this comparison, so it is reported and
+not claimed. The mechanism gives a reason for scepticism: damping subtracts a
+similar amount from every period in a window, and a near-uniform shift changes
+little ordering.
+
+**A model trained on the level improves decisions significantly.** Gradient
+boosting over the leak-safe features, fitted on 583 generated decisions from
+2024 to mid-2025 and scored on 389 from the following year, reduced mean regret
+by 1.91 gCO2/kWh against the seasonal baseline, with a paired interval of +0.43
+to +3.40. This was not expected: the working hypothesis was that a model trained
+on squared error would improve accuracy without reaching the decision.
 
 ## Status
 
@@ -74,9 +86,12 @@ command-line interface, the scheduled capture workflow, a daily contract check
 against the live API, the loader joining issued forecasts to outcomes, two
 seasonal baselines, the scoring harness, feature construction, the scheduling
 and regret evaluation, the revision analysis, the damped-revision correction,
-and the promotion gate that keeps checking it.
+the promotion gate that keeps checking it, a decision dataset over the whole
+settled record, and a gradient-boosting model scored on both accuracy and
+decision quality.
 
-Not built: drift monitoring and a published evaluation page.
+Not built: a ranking objective fitted directly on decision quality, drift
+monitoring, and a published evaluation page.
 
 ## Data
 
@@ -163,9 +178,13 @@ least-squares slope of the remaining error on the revision, in closed form, on
 earlier dates, and scores it on later ones. Each improvement carries a 95%
 interval from a paired bootstrap resampled by target period.
 
-`gridcast gate` refits and promotes a band only where the interval excludes
-zero, the band carries enough held-out observations and distinct periods, and
-the refitted coefficient is close to the one it replaces. That last condition is
+`gridcast gate` refits and promotes a band only where the improvement's lower
+bound clears a minimum worth claiming, the band carries enough held-out
+observations and distinct periods, and the refitted coefficient is close to the
+one it replaces. The bound is a tenth of a gCO2/kWh rather than zero: a
+coefficient near zero applies almost no correction, so its improvement is tiny
+and its variance is tiny with it, and the interval clears zero while the effect
+is nothing. One band was promoted that way before the threshold was added. That last condition is
 the one an interval cannot supply. Every run's coefficient is kept, promoted or
 not, so stability across refits is visible. The gate fails the build only when a
 band that had been promoted no longer qualifies.
@@ -191,6 +210,8 @@ gridcast audit --periods 4 --window 24                   # inspect that comparis
 gridcast revisions                                       # how forecasts move over time
 gridcast correct                                         # test the correction
 gridcast gate                                            # check it still holds
+gridcast decisions --periods 4 --window 24               # the decision dataset
+gridcast model --periods 4 --window 24                   # fit and score a model
 ```
 
 ## Tests
@@ -200,7 +221,7 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-240 tests, 96% line coverage. The offline suite needs no network. The
+283 tests, 96% line coverage. The offline suite needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 

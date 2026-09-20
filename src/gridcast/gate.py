@@ -51,8 +51,14 @@ class Thresholds:
     min_observations: int = 100
     #: Distinct target periods, which is the sample size the interval rests on.
     min_periods: int = 30
-    #: The improvement's lower bound must exceed this, in gCO2/kWh.
-    min_improvement_low: float = 0.0
+    #: The improvement's lower bound must exceed this, in gCO2/kWh. Not zero:
+    #: an interval clearing zero establishes that an effect exists, not that it
+    #: is large enough to be worth claiming. A coefficient near zero applies
+    #: almost no correction, so its improvement is tiny and its variance is
+    #: tiny with it, and the interval clears zero while the effect is
+    #: negligible. A tenth of a gCO2/kWh is under one per cent of the published
+    #: forecast's error at any lead.
+    min_improvement_low: float = 0.1
     #: A refitted coefficient may differ from the promoted one by this much
     #: before it is treated as unstable rather than merely noisy.
     max_coefficient_drift: float = 0.25
@@ -155,6 +161,12 @@ def write_record(
 def _reasons(row: pd.Series, previous: float | None, thresholds: Thresholds) -> list[str]:
     reasons: list[str] = []
 
+    # A coefficient of exactly zero applies no correction at all, and its
+    # interval collapses to a point. Checked separately from the effect-size
+    # threshold so the reason given names the actual problem.
+    if float(row["damping"]) == 0.0:
+        reasons.append("coefficient is zero, so no correction is applied")
+
     if int(row["n"]) < thresholds.min_observations:
         reasons.append(f"{int(row['n'])} observations, needs {thresholds.min_observations}")
 
@@ -166,7 +178,13 @@ def _reasons(row: pd.Series, previous: float | None, thresholds: Thresholds) -> 
     if low is None or not np.isfinite(low):
         reasons.append("no interval could be computed")
     elif low <= thresholds.min_improvement_low:
-        reasons.append(f"interval includes zero (low {low:.3f})")
+        if low <= 0:
+            reasons.append(f"interval includes zero (low {low:.3f})")
+        else:
+            reasons.append(
+                f"improvement too small to claim (low {low:.3f}, "
+                f"needs {thresholds.min_improvement_low:.2f})"
+            )
 
     if previous is not None:
         drift = abs(float(row["damping"]) - previous)

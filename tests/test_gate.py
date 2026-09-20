@@ -290,3 +290,47 @@ def test_writing_a_record_preserves_the_earlier_history(record_path):
     # history still carries both runs.
     assert load_record(record_path) == {}
     assert len(json.loads(record_path.read_text(encoding="utf-8"))["history"]) == 2
+
+
+def test_a_zero_coefficient_is_never_promoted():
+    # A zero coefficient leaves the forecast untouched, so the improvement is
+    # identically zero and the interval collapses to a point at zero. Promoting
+    # it would record a claim that the correction helps when it does nothing.
+    from gridcast.gate import Thresholds, _reasons
+
+    reasons = _reasons(row(damping=0.0, improvement=0.0, improvement_low=0.0), None, Thresholds())
+    assert any("coefficient is zero" in reason for reason in reasons)
+
+
+def test_a_zero_coefficient_is_rejected_even_with_a_clean_interval():
+    from gridcast.gate import Thresholds, _reasons
+
+    reasons = _reasons(
+        row(damping=0.0, improvement=1e-18, improvement_low=1e-18), None, Thresholds()
+    )
+    assert any("coefficient is zero" in reason for reason in reasons)
+
+
+def test_a_statistically_clear_but_negligible_improvement_is_rejected():
+    # The case that exposed the threshold. A coefficient of 0.0008 applies
+    # almost no correction, so the improvement is 0.0003 gCO2/kWh and its
+    # variance is small in proportion; the interval clears zero while the
+    # effect is nothing. Significance is not magnitude.
+    from gridcast.gate import Thresholds, _reasons
+
+    reasons = _reasons(
+        row(damping=0.0008, improvement=0.00033, improvement_low=0.00008),
+        None,
+        Thresholds(),
+    )
+    assert any("too small to claim" in reason for reason in reasons)
+
+
+def test_the_reason_distinguishes_a_negative_bound_from_a_negligible_one():
+    from gridcast.gate import Thresholds, _reasons
+
+    negative = _reasons(row(improvement_low=-0.5), None, Thresholds())
+    negligible = _reasons(row(improvement_low=0.02), None, Thresholds())
+
+    assert any("includes zero" in reason for reason in negative)
+    assert any("too small to claim" in reason for reason in negligible)
