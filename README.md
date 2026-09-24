@@ -112,9 +112,10 @@ seasonal baselines, the scoring harness, feature construction, the scheduling
 and regret evaluation, the revision analysis, the damped-revision correction,
 the promotion gate that keeps checking it, a decision dataset over the whole
 settled record, a gradient-boosting model scored on both accuracy and decision
-quality, three training objectives compared against each other, and drift monitoring.
+quality, three training objectives compared against each other, drift monitoring, and a
+published evaluation page rebuilt weekly from the record.
 
-Not built: a published evaluation page.
+Everything planned is built.
 
 ## Data
 
@@ -237,6 +238,7 @@ gridcast decisions --periods 4 --window 24               # the decision dataset
 gridcast model --periods 4 --window 24                   # fit and score a model
 gridcast objectives --periods 4 --window 24               # compare objectives
 gridcast drift                                           # has the data moved?
+gridcast report-page --out site/index.html               # build the evaluation page
 ```
 
 ## Tests
@@ -246,7 +248,7 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-314 tests, 95% line coverage. The offline suite needs no network. The
+321 tests, 95% line coverage. The offline suite needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 

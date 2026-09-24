@@ -550,6 +550,24 @@ conventional reading. That does not establish that the correction fails in
 winter. It establishes that applying it in winter is extrapolation, and that the
 weekly gate is the thing that will settle it.
 
+## The evaluation page
+
+Generated from the record rather than written. The reason is the record of this
+project rather than a preference: the matched sample has grown from 195
+decisions to over 300, two headline figures reversed on the way, and the README
+has twice quoted numbers that a current run no longer produced. A page that
+rebuilds itself carries the date and counts it was built from, so a reader can
+see when it was true.
+
+Every figure comes from the functions the command line already uses. A separate
+implementation for presentation would be the easiest place for the page and the
+analysis to diverge, and a reader would have no way to tell which was right.
+
+The page is a single self-contained file with no external assets, so it can be
+served as a static site or opened from disk. It is not committed: the workflow
+builds it and uploads it as a Pages artefact, which keeps generated output out
+of a repository whose value is that its data is the real record.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

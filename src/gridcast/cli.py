@@ -41,6 +41,7 @@ from .load import coverage, evaluation_frame
 from .models import compare_with_intervals, fit_level_model, permutation_importance
 from .parse import ParseError, parse_generation, parse_intensity
 from .ranking import compare_objectives
+from .report import write_report
 from .revisions import (
     distinct_revisions,
     error_by_lead,
@@ -603,6 +604,19 @@ def drift(root: Path) -> int:
     return 0
 
 
+def report_page(root: Path, destination: Path, load: Load) -> int:
+    """Build the static evaluation page from the current record.
+
+    Generated rather than written, because the findings move: the matched sample
+    grows with every capture and the gate refits weekly. A page written by hand
+    goes stale silently; one built from the record carries the date and the
+    counts it was built from.
+    """
+    written = write_report(destination, root=root, load=load)
+    print(f"wrote {written} ({written.stat().st_size:,} bytes)")
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -686,6 +700,16 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
 
     sub.add_parser("drift", help="check the data still resembles what was fitted on")
 
+    page_parser = sub.add_parser("report-page", help="build the static evaluation page")
+    page_parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("docs/site/index.html"),
+        help="where to write the page",
+    )
+    page_parser.add_argument("--periods", type=int, default=4)
+    page_parser.add_argument("--window", type=float, default=24.0)
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -722,6 +746,10 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
             args.root,
             Load(periods=args.periods, window_hours=args.window),
             tuple(args.issue_hours),
+        )
+    if args.command == "report-page":
+        return report_page(
+            args.root, args.out, Load(periods=args.periods, window_hours=args.window)
         )
     if args.command == "drift":
         return drift(args.root)

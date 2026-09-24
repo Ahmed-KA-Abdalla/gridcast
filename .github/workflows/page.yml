@@ -1,0 +1,59 @@
+name: page
+
+# Rebuilds the evaluation page from the committed record and publishes it.
+#
+# Generated rather than written, because the findings move: the matched sample
+# grows with every capture and the gate refits weekly. Two headline figures have
+# already reversed as the sample grew, so a hand-written page would go stale
+# without anyone noticing.
+#
+# Weekly, after the gate has run, so the page reflects the current verdict
+# rather than the one before it.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Build the page
+        run: gridcast report-page --out site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
