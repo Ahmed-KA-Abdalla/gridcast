@@ -39,6 +39,7 @@ from .gate import (
 from .load import coverage, evaluation_frame
 from .models import compare_with_intervals, fit_level_model, permutation_importance
 from .parse import ParseError, parse_generation, parse_intensity
+from .ranking import compare_objectives
 from .revisions import (
     distinct_revisions,
     error_by_lead,
@@ -518,6 +519,48 @@ def model(root: Path, load: Load, issue_hours: tuple[int, ...], importance: bool
     return 0
 
 
+def objectives(root: Path, load: Load, issue_hours: tuple[int, ...]) -> int:
+    """Compare three training objectives on the same decisions.
+
+    Squared error on the level, squared error on the deviation from the window
+    mean, and a pairwise loss on which of two periods is cheaper. Same features,
+    same training rows, same held-out decisions, so a difference between them is
+    a difference in objective rather than in anything else.
+    """
+    from .load import outcome_record
+
+    dataset = decision_dataset(root, load, issue_hours)
+    if dataset.empty:
+        print("no complete windows in the settled record")
+        return 0
+
+    outcomes = outcome_record(root)
+    summary, differences, note = compare_objectives(dataset, outcomes, load)
+    if summary.empty:
+        print(note.get("reason", "could not fit"))
+        return 0
+
+    print(f"decision: {load.describe()}")
+    print(
+        f"fitted on {note['train_decisions']} decisions, "
+        f"{note['train_span'][0]} to {note['train_span'][1]}"
+    )
+    print(
+        f"scored on {note['test_decisions']} decisions, "
+        f"{note['test_span'][0]} to {note['test_span'][1]}\n"
+    )
+    print(summary.round(3).to_string())
+    print("\nmae is blank for the two models that do not predict an intensity.")
+    print("Neither has an error against a realised value, and reporting one")
+    print("would invite exactly the comparison this project argues against.")
+
+    if not differences.empty:
+        print("\nreduction in mean regret, 95% interval, paired by decision")
+        print(differences.round(3).to_string(index=False))
+
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -590,6 +633,15 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         "--importance", action="store_true", help="also report feature importance"
     )
 
+    objectives_parser = sub.add_parser(
+        "objectives", help="compare training objectives on the same decisions"
+    )
+    objectives_parser.add_argument("--periods", type=int, default=4)
+    objectives_parser.add_argument("--window", type=float, default=24.0)
+    objectives_parser.add_argument(
+        "--issue-hours", type=int, nargs="+", default=list(DEFAULT_ISSUE_HOURS)
+    )
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -620,6 +672,12 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
             Load(periods=args.periods, window_hours=args.window),
             tuple(args.issue_hours),
             args.importance,
+        )
+    if args.command == "objectives":
+        return objectives(
+            args.root,
+            Load(periods=args.periods, window_hours=args.window),
+            tuple(args.issue_hours),
         )
     if args.command == "audit":
         return audit(args.root, Load(periods=args.periods, window_hours=args.window))

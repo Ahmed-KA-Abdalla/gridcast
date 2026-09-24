@@ -72,6 +72,22 @@ not claimed. The mechanism gives a reason for scepticism: damping subtracts a
 similar amount from every period in a window, and a near-uniform shift changes
 little ordering.
 
+**The target matters; the loss function does not.** Three objectives were fitted
+on the same features, the same 597 training decisions and scored on the same 398
+held-out ones. Squared error on the level secured 88.6% of the available saving.
+Squared error on each period's deviation from its own window mean secured 90.2%,
+reducing mean regret by 1.17 gCO2/kWh against the level model with an interval
+of +0.20 to +2.20. A pairwise ranking loss, learning only which of two periods
+is cheaper, did worse than the level model at -1.85.
+
+The pairwise model is linear, because a scorer fitted on feature differences
+must be additive to induce an ordering on single periods, while the others are
+gradient-boosted trees. A linear model on the relative target was therefore
+fitted as a control, and the pairwise model is indistinguishable from it:
+-0.31 with an interval of -1.40 to +0.66. So the pairwise deficit is its
+functional form, not its objective. What the ordering objective buys, against a
+like-for-like control, is nothing.
+
 **A model trained on the level improves decisions significantly.** Gradient
 boosting over the leak-safe features, fitted on 583 generated decisions from
 2024 to mid-2025 and scored on 389 from the following year, reduced mean regret
@@ -87,11 +103,10 @@ against the live API, the loader joining issued forecasts to outcomes, two
 seasonal baselines, the scoring harness, feature construction, the scheduling
 and regret evaluation, the revision analysis, the damped-revision correction,
 the promotion gate that keeps checking it, a decision dataset over the whole
-settled record, and a gradient-boosting model scored on both accuracy and
-decision quality.
+settled record, a gradient-boosting model scored on both accuracy and decision
+quality, and three training objectives compared against each other.
 
-Not built: a ranking objective fitted directly on decision quality, drift
-monitoring, and a published evaluation page.
+Not built: drift monitoring and a published evaluation page.
 
 ## Data
 
@@ -212,6 +227,7 @@ gridcast correct                                         # test the correction
 gridcast gate                                            # check it still holds
 gridcast decisions --periods 4 --window 24               # the decision dataset
 gridcast model --periods 4 --window 24                   # fit and score a model
+gridcast objectives --periods 4 --window 24               # compare objectives
 ```
 
 ## Tests
@@ -221,7 +237,7 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-283 tests, 96% line coverage. The offline suite needs no network. The
+297 tests, 95% line coverage. The offline suite needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 

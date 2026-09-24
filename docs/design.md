@@ -464,6 +464,39 @@ under twelve hours it sits between 0.40 and 0.46. What moves is which band
 reaches significance, which is a statement about sample size rather than about
 the forecast.
 
+## Which objective a scheduler wants
+
+The project's finding that accuracy and decision quality come apart suggests
+fitting the ordering directly rather than the level. Three objectives were
+compared on identical features, training rows and held-out decisions.
+
+Squared error on the level is the conventional objective and the control.
+Squared error on the window-relative target keeps the loss and changes what is
+predicted: each period's deviation from its own window mean, which is the
+quantity a scheduler compares. A pairwise logistic loss changes the loss itself,
+learning from the difference between two periods' feature vectors which of them
+was realised cheaper.
+
+The pairwise scorer is linear by necessity rather than by choice. A model fitted
+on feature differences induces an ordering on single periods only if it is
+additive; a tree fitted on differences has no corresponding per-period score. A
+linear model on the relative target was therefore fitted as a control, because
+without it a pairwise result could be attributed to its objective when it
+belongs to its functional form.
+
+The result separates cleanly. Changing the target helps: the relative model
+reduced mean regret by 1.17 gCO2/kWh against the level model, interval +0.20 to
++2.20, and by 2.74 against the seasonal baseline. Changing the loss does not:
+the pairwise model is indistinguishable from the linear control at -0.31,
+interval -1.40 to +0.66, and both trail the trees. What looked like an objective
+effect is a functional-form effect.
+
+Two details of the pairwise construction are worth stating. Pairs are drawn
+within a window and never across, since comparing a period in January with one
+in July is not a comparison any scheduler makes. And each pair is emitted in
+both orders, without which the labels inherit the sampling's bias and a scorer
+can appear accurate from the sign convention alone.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
