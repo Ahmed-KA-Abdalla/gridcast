@@ -208,3 +208,126 @@ def write_report(
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(build_report(root, record, load), encoding="utf-8")
     return destination
+
+
+#: Markers delimiting the generated block in the README. Content between them is
+#: replaced wholesale; everything outside is left untouched.
+BLOCK_START = "<!-- figures:start -->"
+BLOCK_END = "<!-- figures:end -->"
+
+
+def _markdown_table(frame: pd.DataFrame, decimals: int = 3) -> str:
+    if frame is None or frame.empty:
+        return "_Nothing to report yet._"
+    numeric = frame.select_dtypes(include="number").columns
+    return frame.round({name: decimals for name in numeric}).to_markdown(index=False)
+
+
+def readme_block(
+    root: Path = DEFAULT_ROOT,
+    record: Path = DEFAULT_RECORD,
+    load: Load | None = None,
+) -> str:
+    """A compact summary of the current figures, as Markdown.
+
+    Deliberately short. The README's prose explains what the findings mean and
+    does not need regenerating; what goes stale is the numbers, so only those are
+    replaced. Anything longer would duplicate the page rather than point at it.
+    """
+    load = load or Load()
+    built = datetime.now(UTC)
+    held = coverage(root)
+
+    lines = [
+        BLOCK_START,
+        "",
+        f"_Figures below regenerated {built:%Y-%m-%d} from "
+        f"{held.get('outcome_periods', 0):,} settled half-hours and "
+        f"{held.get('issues', 0):,} captured forecast issues._",
+        "",
+    ]
+
+    scheduled = compare_schedulers(root, load)
+    if not scheduled.empty:
+        columns = ["n", "mean_regret", "hit_rate", "captured_fraction"]
+        available = [name for name in columns if name in scheduled.columns]
+        table = scheduled[available].reset_index().rename(columns={"index": "forecaster"})
+        lines += [
+            f"**Decision quality** — {load.describe()}. Rows ending `_matched` face the same",
+            "decisions as the published forecast; `_full` rows are a different sample.",
+            "",
+            _markdown_table(table),
+            "",
+        ]
+
+    verdicts, _ = evaluate_gate(root, record=record)
+    if verdicts:
+        rows = pd.DataFrame(
+            [
+                {
+                    "band": item.band,
+                    "verdict": "promoted" if item.promoted else "held back",
+                    "damping": item.damping,
+                    "improvement": item.improvement,
+                    "interval low": item.improvement_low,
+                    "n": item.n,
+                }
+                for item in verdicts
+            ]
+        )
+        lines += [
+            "**Damping correction**, as the gate last judged it.",
+            "",
+            _markdown_table(rows),
+            "",
+        ]
+
+    drift = seasonal_drift(root)
+    if not drift.empty:
+        available = [
+            c for c in ("season", "psi_against_summer", "reading", "mean", "n") if c in drift
+        ]
+        lines += [
+            "**Seasonal drift** of intensity against summer, which is when the captured",
+            "forecasts begin.",
+            "",
+            _markdown_table(drift[available]),
+            "",
+        ]
+
+    lines += [BLOCK_END]
+    return "\n".join(lines)
+
+
+def splice_block(existing: str, block: str) -> str:
+    """Replace the marked region of a document, leaving everything else alone.
+
+    Raises if the markers are absent or out of order rather than appending or
+    guessing. A generator that rewrites a file it does not recognise is how a
+    README gets destroyed by a scheduled job.
+    """
+    start = existing.find(BLOCK_START)
+    end = existing.find(BLOCK_END)
+    if start == -1 or end == -1:
+        raise ValueError(f"markers {BLOCK_START} and {BLOCK_END} not found")
+    if end < start:
+        raise ValueError("markers are out of order")
+
+    return existing[:start] + block + existing[end + len(BLOCK_END) :]
+
+
+def update_readme(
+    path: Path,
+    root: Path = DEFAULT_ROOT,
+    record: Path = DEFAULT_RECORD,
+    load: Load | None = None,
+) -> Path:
+    """Rewrite the marked block of a README in place."""
+    existing = path.read_text(encoding="utf-8")
+    updated = splice_block(existing, readme_block(root, record, load))
+
+    if BLOCK_START not in updated or BLOCK_END not in updated:
+        raise ValueError("markers lost while splicing; refusing to write")
+
+    path.write_text(updated, encoding="utf-8")
+    return path

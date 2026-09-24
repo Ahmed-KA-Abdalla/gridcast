@@ -4,9 +4,45 @@
 [![contract](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/contract.yml/badge.svg)](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/contract.yml)
 [![gate](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/gate.yml/badge.svg)](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/gate.yml)
 
-**[Current findings →](https://ahmed-ka-abdalla.github.io/gridcast/)** — rebuilt
-weekly from the record. The figures quoted below are a snapshot and may be older
-than the page.
+**[Full evaluation page →](https://ahmed-ka-abdalla.github.io/gridcast/)**
+
+<!-- figures:start -->
+
+_Figures below regenerated 2026-09-24 from 47,824 settled half-hours and 339 captured forecast issues._
+
+**Decision quality** — 2h contiguous load within 24h. Rows ending `_matched` face the same
+decisions as the published forecast; `_full` rows are a different sample.
+
+| forecaster             |   n |   mean_regret |   hit_rate |   captured_fraction |
+|:-----------------------|----:|--------------:|-----------:|--------------------:|
+| published              | 322 |         7.863 |      0.205 |               0.907 |
+| corrected              | 322 |         7.404 |      0.211 |               0.915 |
+| seasonal_naive_matched | 322 |        16.28  |      0.087 |               0.833 |
+| seasonal_mean_matched  | 322 |        13.543 |      0.075 |               0.867 |
+| seasonal_naive_full    | 988 |        17.474 |      0.074 |               0.807 |
+| seasonal_mean_full     | 988 |        12.699 |      0.082 |               0.856 |
+
+**Damping correction**, as the gate last judged it.
+
+| band     | verdict   |   damping |   improvement |   interval low |    n |
+|:---------|:----------|----------:|--------------:|---------------:|-----:|
+| (0, 3]   | promoted  |     0.4   |         1.01  |          0.356 |  584 |
+| (12, 24] | held back |     0.078 |         0.026 |          0.005 | 1892 |
+| (24, 48] | held back |     0.982 |        -0.302 |         -0.499 | 2886 |
+| (3, 6]   | promoted  |     0.461 |         1.867 |          1.171 |  559 |
+| (6, 12]  | held back |     0.458 |         0.341 |          0.021 | 1055 |
+
+**Seasonal drift** of intensity against summer, which is when the captured
+forecasts begin.
+
+| season   |   psi_against_summer | reading        |    mean |     n |
+|:---------|---------------------:|:---------------|--------:|------:|
+| winter   |                0.285 | large shift    | 143.097 | 11521 |
+| spring   |                0.037 | stable         | 118.303 | 13248 |
+| summer   |                0     | stable         | 114.307 | 13217 |
+| autumn   |                0.146 | moderate shift | 131.292 |  9838 |
+
+<!-- figures:end -->
 
 Measuring the Great Britain carbon intensity forecast by the decisions it
 produces rather than by its error.
@@ -243,6 +279,7 @@ gridcast model --periods 4 --window 24                   # fit and score a model
 gridcast objectives --periods 4 --window 24               # compare objectives
 gridcast drift                                           # has the data moved?
 gridcast report-page --out site/index.html               # build the evaluation page
+gridcast refresh-readme                                  # update the figures above
 ```
 
 ## Tests
@@ -252,7 +289,7 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-321 tests, 95% line coverage. The offline suite needs no network. The
+328 tests, 95% line coverage. The offline suite needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 

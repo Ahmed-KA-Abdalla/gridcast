@@ -41,7 +41,7 @@ from .load import coverage, evaluation_frame
 from .models import compare_with_intervals, fit_level_model, permutation_importance
 from .parse import ParseError, parse_generation, parse_intensity
 from .ranking import compare_objectives
-from .report import write_report
+from .report import update_readme, write_report
 from .revisions import (
     distinct_revisions,
     error_by_lead,
@@ -617,6 +617,23 @@ def report_page(root: Path, destination: Path, load: Load) -> int:
     return 0
 
 
+def refresh_readme(root: Path, readme: Path, load: Load) -> int:
+    """Regenerate the figures block in the README.
+
+    Only the region between the markers is touched. The prose around it explains
+    what the findings mean and does not go stale; the numbers do, and this file
+    has twice quoted figures a current run no longer produced.
+    """
+    try:
+        written = update_readme(readme, root=root, load=load)
+    except (OSError, ValueError) as exc:
+        print(f"could not update {readme}: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"updated {written}")
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -700,6 +717,13 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
 
     sub.add_parser("drift", help="check the data still resembles what was fitted on")
 
+    readme_parser = sub.add_parser(
+        "refresh-readme", help="regenerate the figures block in the README"
+    )
+    readme_parser.add_argument("--readme", type=Path, default=Path("README.md"))
+    readme_parser.add_argument("--periods", type=int, default=4)
+    readme_parser.add_argument("--window", type=float, default=24.0)
+
     page_parser = sub.add_parser("report-page", help="build the static evaluation page")
     page_parser.add_argument(
         "--out",
@@ -746,6 +770,10 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
             args.root,
             Load(periods=args.periods, window_hours=args.window),
             tuple(args.issue_hours),
+        )
+    if args.command == "refresh-readme":
+        return refresh_readme(
+            args.root, args.readme, Load(periods=args.periods, window_hours=args.window)
         )
     if args.command == "report-page":
         return report_page(
