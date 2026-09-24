@@ -497,6 +497,30 @@ in July is not a comparison any scheduler makes. And each pair is emitted in
 both orders, without which the labels inherit the sampling's bias and a scorer
 can appear accurate from the sign convention alone.
 
+## A statistic that measured the sampling
+
+The revision analysis reported median total movement of 117.5 gCO2/kWh against
+median net movement of 12, and read that as the forecast retracing most of its
+own movement. The reading was right and the statistic was not.
+
+Total movement is the sum of absolute changes observed between captures, so it
+grows with how often the forecast is sampled and shrinks when capture thins. It
+was measured when the record held about fifty captures per target period. At
+about eleven the same quantities read 48.0 and 13.0, and the apparent share
+retraced falls from four fifths to three fifths without anything about the
+forecast having changed.
+
+The autocorrelation of successive revisions does not have this defect: it is a
+correlation over distinct revisions rather than a sum over captures, so thinning
+the sample widens its interval instead of moving its value. It is what the
+correction rests on, and the movement figures are now reported with the
+qualification that they depend on capture density.
+
+The general point is the one this project keeps rediscovering. A statistic
+computed over a record whose sampling rate varies is measuring the sampling
+unless it was designed not to, and the same fault produced the starved
+train-test split and the incomparable lead-time buckets.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

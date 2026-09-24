@@ -24,76 +24,84 @@ realised values, so that the two can be scored against each other.
 ## What it found
 
 All figures are for a two-hour deferrable load with twenty-four hours of slack,
-over 303 decisions the published forecast faced between 20 August and 20
-September 2026, unless stated otherwise. The sample is small and one season
-only; the last section says what else is missing.
+over 322 decisions the published forecast faced between 20 August and 23
+September 2026, unless stated otherwise. Figures were last refreshed on 24
+September; the capture and gate workflows keep running, so a fresh run may
+disagree with what is written here.
 
-Several of these figures moved when the sample grew from 195 decisions to 303,
-and two reversed. Where that happened it is stated, because a result that
-changes with a third more data is one to hold loosely.
+Several of these numbers have moved as the sample grew, and two reversed. Where
+that happened it is stated, because a result that changes with a third more data
+is one to hold loosely.
 
 **Deferring works.** Scheduling on the published forecast rather than running
-immediately saved 37.7 gCO2/kWh averaged over the load, around 15% of a typical
+immediately saved 38.3 gCO2/kWh averaged over the load, around 15% of a typical
 GB intensity. Against perfect hindsight it secured 90.7% of the saving that was
 available.
 
-**The published forecast beats a seasonal baseline on decisions, by about as
-much as it does on accuracy.** A baseline taking the mean intensity at the same
-half-hour of the last three same weekdays — which knows nothing about wind —
-secured 87.5% on the same decisions, against the forecast's 90.7%. On the
-smaller sample this was the other way round, with the baseline ahead at 93.6%
-against 92.4%; the reversal is the clearest illustration in this repository of
-how far a result can move on two hundred decisions.
+**The published forecast beats a seasonal baseline on decisions.** A baseline
+taking the mean intensity at the same half-hour of the last three same weekdays
+— which knows nothing about wind — secured 86.7% on the same decisions, against
+the forecast's 90.7%. On a smaller sample of 195 decisions this was the other
+way round, with the baseline ahead at 93.6% against 92.4%. The reversal is the
+clearest illustration in this repository of how far a result can move on two
+hundred decisions.
 
-**Most of the achievable benefit is available without any weather information
-at all.** Whichever way the two rank, the gap between them is a few percentage
-points while the gap between doing nothing and deferring is fifteen per cent of
-intensity. The daily and weekly pattern carries most of what a scheduler needs.
+**Most of the achievable benefit needs no weather information.** The gap between
+the two forecasters is four percentage points; the gap between doing nothing and
+deferring is fifteen per cent of intensity. The daily and weekly pattern carries
+most of what a scheduler needs.
 
-**The published forecast overshoots at short lead.** Successive revisions are
-anticorrelated at about -0.5, and median total movement of a forecast is 117.5
-gCO2/kWh against median net movement of 12, so most of what it does is later
-undone. Subtracting a fitted share of the most recent revision reduces error out
-of sample: 1.45 gCO2/kWh in the zero-to-three-hour band with a bootstrap
-interval of +0.78, and 1.93 in three-to-six with a lower bound of +1.30.
+**The published forecast overshoots at short and medium lead.** Successive
+revisions are anticorrelated: -0.32 in the zero-to-three-hour band, -0.38 in
+three-to-six, -0.54 in six-to-twelve, and near zero beyond twelve hours where
+the forecast is barely revised at all. Subtracting a fitted share of the most
+recent revision reduces error out of sample — 1.01 gCO2/kWh in the
+zero-to-three-hour band with a bootstrap lower bound of +0.36, and 1.87 in
+three-to-six with a lower bound of +1.17.
 
-**Which band survives has moved.** The six-to-twelve-hour band cleared on three
-successive refits and no longer does, at +0.24 with a lower bound of -0.05. The
-short bands now clear instead. The fitted coefficients have been stable
-throughout — 0.40 to 0.46 across every band under twelve hours, across five
-refits — so what moves is which band reaches significance, not the size of the
-effect.
+**How much a forecast moves depends on how often you look.** An earlier version
+of this file reported median total movement of 117.5 gCO2/kWh against median net
+movement of 12, and concluded that most of what the forecast does is later
+undone. Both figures are sampling artefacts: they were measured when capture ran
+about fifty times per period, and now read 48.0 and 13.0 at about eleven. The
+anticorrelation is the sampling-robust version of the same observation, and it
+is what the correction rests on.
 
-**The correction's effect on decisions is small and may be nothing.** On 303
-decisions the corrected forecast secured 91.5% against the published forecast's
-90.7%, with mean regret 7.24 against 7.81. On the earlier sample it changed no
-decisions at all. There is no interval on this comparison, so it is reported and
-not claimed. The mechanism gives a reason for scepticism: damping subtracts a
-similar amount from every period in a window, and a near-uniform shift changes
-little ordering.
+**Which band survives has moved.** The six-to-twelve-hour band cleared the
+promotion gate on three successive refits and no longer does. The short bands
+now clear instead. The fitted coefficients have been stable throughout — 0.40 to
+0.46 across every band under twelve hours, over five refits — so what moves is
+which band reaches significance, not the size of the effect.
+
+**The correction's effect on decisions is small.** The corrected forecast
+secured 91.5% against the published forecast's 90.7%, with mean regret 7.40
+against 7.86. On an earlier sample it changed no decisions at all. There is no
+interval on this comparison, so it is reported and not claimed. Damping
+subtracts a similar amount from every period in a window, and a near-uniform
+shift changes little ordering.
+
+**A model trained on the level improves decisions significantly.** Gradient
+boosting over the leak-safe features, fitted on 597 generated decisions from
+2024 to mid-2025 and scored on 398 from the following year, reduced mean regret
+by 1.91 gCO2/kWh against the seasonal baseline, with a paired interval of +0.43
+to +3.40. This was not expected: the working hypothesis was that a model trained
+on squared error would improve accuracy without reaching the decision.
 
 **The target matters; the loss function does not.** Three objectives were fitted
-on the same features, the same 597 training decisions and scored on the same 398
-held-out ones. Squared error on the level secured 88.6% of the available saving.
-Squared error on each period's deviation from its own window mean secured 90.2%,
-reducing mean regret by 1.17 gCO2/kWh against the level model with an interval
-of +0.20 to +2.20. A pairwise ranking loss, learning only which of two periods
-is cheaper, did worse than the level model at -1.85.
+on the same features, the same 597 training decisions, and scored on the same
+398 held-out ones. Squared error on the level secured 88.6% of the available
+saving. Squared error on each period's deviation from its own window mean
+secured 90.2%, reducing mean regret by 1.17 gCO2/kWh against the level model
+with an interval of +0.20 to +2.20. A pairwise ranking loss, learning only which
+of two periods is cheaper, did worse than the level model at -1.85.
 
 The pairwise model is linear, because a scorer fitted on feature differences
 must be additive to induce an ordering on single periods, while the others are
 gradient-boosted trees. A linear model on the relative target was therefore
-fitted as a control, and the pairwise model is indistinguishable from it:
--0.31 with an interval of -1.40 to +0.66. So the pairwise deficit is its
-functional form, not its objective. What the ordering objective buys, against a
-like-for-like control, is nothing.
-
-**A model trained on the level improves decisions significantly.** Gradient
-boosting over the leak-safe features, fitted on 583 generated decisions from
-2024 to mid-2025 and scored on 389 from the following year, reduced mean regret
-by 1.91 gCO2/kWh against the seasonal baseline, with a paired interval of +0.43
-to +3.40. This was not expected: the working hypothesis was that a model trained
-on squared error would improve accuracy without reaching the decision.
+fitted as a control, and the pairwise model is indistinguishable from it: -0.31
+with an interval of -1.40 to +0.66. So the pairwise deficit is its functional
+form, not its objective. Against a like-for-like control, the ordering objective
+buys nothing.
 
 ## Status
 
@@ -138,7 +146,7 @@ hourly made no difference. Because each run re-harvests the past day, a missed
 run costs forecast vintages but no outcomes, so the outcome record is complete
 while the vintage record is not.
 
-The outcome record holds 46,540 settled half-hours from 31 December 2023, with
+The outcome record holds 47,824 settled half-hours from 31 December 2023, with
 31 missing.
 
 ## Conventions worth knowing
@@ -237,7 +245,7 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-297 tests, 95% line coverage. The offline suite needs no network. The
+291 tests, 95% line coverage. The offline suite needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 
