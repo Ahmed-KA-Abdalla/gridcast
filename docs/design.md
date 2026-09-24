@@ -521,6 +521,35 @@ computed over a record whose sampling rate varies is measuring the sampling
 unless it was designed not to, and the same fault produced the starved
 train-test split and the incomparable lead-time buckets.
 
+## Drift monitoring
+
+Three kinds of drift, which fail differently. Feature drift means the inputs
+have moved, and a model may still be accurate, since a shift within its fitted
+range is not a problem. Target drift means the quantity being predicted has
+moved, which is more serious because a model fitted on one regime's distribution
+has no reason to be calibrated on another's. Performance drift means the errors
+have grown, and it is the only one that is a fault by itself.
+
+The measure is the population stability index over quantile bins taken from the
+reference. The reference is uniform across its own bins by construction, so the
+index measures how unevenly the current sample falls into them. Empty bins are
+floored rather than dropped: the logarithm is otherwise undefined, and a bin the
+current sample never reaches is exactly the case worth counting.
+
+Nothing here is a hypothesis test. With one observation per period and strong
+serial correlation between neighbouring periods, the effective sample size is
+far below the row count and a p-value would be a number without a meaning. The
+conventional thresholds of 0.1 and 0.25 are labels rather than verdicts, and the
+report says so where it prints them.
+
+The measurement answers the question the captured vintages cannot answer about
+themselves. They begin on 20 August, so every coefficient fitted on them is a
+summer coefficient. Winter's intensity distribution scores 0.285 against
+summer's, with a mean of 143 gCO2/kWh against 114 — a large shift on the
+conventional reading. That does not establish that the correction fails in
+winter. It establishes that applying it in winter is extrapolation, and that the
+weekly gate is the thing that will settle it.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

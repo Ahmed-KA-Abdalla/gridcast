@@ -27,6 +27,7 @@ from .decisions import (
     score_through_harness,
     split_decisions,
 )
+from .drift import coefficient_drift, error_drift, seasonal_drift
 from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
 from .gate import (
     DEFAULT_RECORD,
@@ -561,6 +562,47 @@ def objectives(root: Path, load: Load, issue_hours: tuple[int, ...]) -> int:
     return 0
 
 
+def drift(root: Path) -> int:
+    """Report whether the data still resembles what the models were fitted on.
+
+    Three views. The target's distribution by season, which is the question the
+    captured vintages cannot answer for themselves, since they begin in late
+    August. The published forecast's error over time, which is the only one of
+    the three that is a fault by itself. And the fitted coefficients across gate
+    runs, which distinguish a correction that is a property of the forecast from
+    one that is a property of the weather it was fitted in.
+
+    None of these is a hypothesis test. With one observation per period and
+    strong serial correlation a p-value here would be meaningless, so the
+    statistics are magnitudes for a reader to judge.
+    """
+    seasonal = seasonal_drift(root)
+    if seasonal.empty:
+        print("not enough of the record to compare seasons")
+    else:
+        print("intensity distribution by season, against summer")
+        print(seasonal.round(3).to_string(index=False))
+        print("Index under 0.1 is conventionally read as stable, over 0.25 as a")
+        print("large shift. The thresholds are conventions, not derived quantities.")
+
+    errors = error_drift(root)
+    if not errors.empty:
+        recent = errors.sort_values("bucket").groupby("band", observed=True).tail(4)
+        recent = recent.sort_values(["band", "bucket"])
+        numeric = recent.select_dtypes(include="number").columns
+        print("\npublished forecast error, last four weeks by lead band")
+        print(recent.round({name: 2 for name in numeric}).to_string(index=False))
+
+    coefficients = coefficient_drift()
+    if not coefficients.empty:
+        print("\nfitted damping coefficients across gate runs")
+        print(coefficients.round(3).to_string(index=False))
+        print("A coefficient that holds while the inputs move is evidence the")
+        print("correction belongs to the forecast rather than to one season.")
+
+    return 0
+
+
 def _date(text: str) -> dt.datetime:
     return dt.datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=dt.UTC)
 
@@ -642,6 +684,8 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
         "--issue-hours", type=int, nargs="+", default=list(DEFAULT_ISSUE_HOURS)
     )
 
+    sub.add_parser("drift", help="check the data still resembles what was fitted on")
+
     audit_parser = sub.add_parser("audit", help="inspect the decision comparison")
     audit_parser.add_argument("--periods", type=int, default=4)
     audit_parser.add_argument("--window", type=float, default=24.0)
@@ -679,6 +723,8 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
             Load(periods=args.periods, window_hours=args.window),
             tuple(args.issue_hours),
         )
+    if args.command == "drift":
+        return drift(args.root)
     if args.command == "audit":
         return audit(args.root, Load(periods=args.periods, window_hours=args.window))
     if args.command == "schedule":
