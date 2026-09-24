@@ -4,6 +4,10 @@
 [![contract](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/contract.yml/badge.svg)](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/contract.yml)
 [![gate](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/gate.yml/badge.svg)](https://github.com/Ahmed-KA-Abdalla/gridcast/actions/workflows/gate.yml)
 
+**[Current findings →](https://ahmed-ka-abdalla.github.io/gridcast/)** — rebuilt
+weekly from the record. The figures quoted below are a snapshot and may be older
+than the page.
+
 Measuring the Great Britain carbon intensity forecast by the decisions it
 produces rather than by its error.
 
