@@ -3,7 +3,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
-from tests.test_models import FAST, synthetic_dataset
 
 from gridcast.ranking import (
     fit_pairwise_model,
@@ -12,6 +11,7 @@ from gridcast.ranking import (
     sample_pairs,
 )
 from gridcast.scheduling import Load
+from gridcast_testing import FAST, synthetic_dataset
 
 
 def test_sampled_pairs_never_cross_a_window():
