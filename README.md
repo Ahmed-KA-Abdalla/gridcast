@@ -8,29 +8,29 @@
 
 <!-- figures:start -->
 
-_Figures below regenerated 2026-10-05 from 48,385 settled half-hours and 394 captured forecast issues._
+_Figures below regenerated 2026-10-12 from 48,725 settled half-hours and 423 captured forecast issues._
 
 **Decision quality** — 2h contiguous load within 24h. Rows ending `_matched` face the same
 decisions as the published forecast; `_full` rows are a different sample.
 
-| forecaster             |   n |   mean_regret |   hit_rate |   captured_fraction |
-|:-----------------------|----:|--------------:|-----------:|--------------------:|
-| published              | 378 |         8.106 |      0.196 |               0.908 |
-| corrected              | 378 |         7.831 |      0.196 |               0.912 |
-| seasonal_naive_matched | 378 |        16.558 |      0.079 |               0.834 |
-| seasonal_mean_matched  | 378 |        14.534 |      0.063 |               0.862 |
-| seasonal_naive_full    | 999 |        17.49  |      0.073 |               0.807 |
-| seasonal_mean_full     | 999 |        12.753 |      0.081 |               0.856 |
+| forecaster             |    n |   mean_regret |   hit_rate |   captured_fraction |
+|:-----------------------|-----:|--------------:|-----------:|--------------------:|
+| published              |  408 |         7.951 |      0.201 |               0.909 |
+| corrected              |  408 |         7.716 |      0.199 |               0.913 |
+| seasonal_naive_matched |  408 |        17.733 |      0.091 |               0.823 |
+| seasonal_mean_matched  |  408 |        15.207 |      0.081 |               0.858 |
+| seasonal_naive_full    | 1006 |        17.562 |      0.075 |               0.807 |
+| seasonal_mean_full     | 1006 |        12.726 |      0.083 |               0.856 |
 
 **Damping correction**, as the gate last judged it.
 
 | band     | verdict   |   damping |   improvement |   interval low |    n |
 |:---------|:----------|----------:|--------------:|---------------:|-----:|
-| (0, 3]   | held back |     0.362 |         0.107 |         -0.518 |  689 |
-| (12, 24] | held back |     0.353 |         0.158 |          0.077 | 2347 |
-| (24, 48] | held back |     0.887 |        -0.583 |         -0.743 | 3629 |
-| (3, 6]   | held back |     0.444 |         0.705 |          0.01  |  676 |
-| (6, 12]  | held back |     0.452 |         0.211 |         -0.066 | 1283 |
+| (0, 3]   | held back |     0.366 |        -0.737 |         -1.3   |  754 |
+| (12, 24] | promoted  |     0.302 |         0.231 |          0.162 | 2623 |
+| (24, 48] | held back |     0.73  |        -0.278 |         -0.407 | 4009 |
+| (3, 6]   | held back |     0.423 |         0.328 |         -0.214 |  743 |
+| (6, 12]  | promoted  |     0.443 |         0.566 |          0.296 | 1404 |
 
 **Seasonal drift** of intensity against summer, which is when the captured
 forecasts begin.
@@ -40,7 +40,7 @@ forecasts begin.
 | winter   |                0.285 | large shift    | 143.097 | 11521 |
 | spring   |                0.037 | stable         | 118.303 | 13248 |
 | summer   |                0     | stable         | 114.307 | 13217 |
-| autumn   |                0.134 | moderate shift | 130.932 | 10399 |
+| autumn   |                0.133 | moderate shift | 130.357 | 10739 |
 
 <!-- figures:end -->
 
