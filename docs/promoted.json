@@ -1,9 +1,9 @@
 {
  "coefficients": {
-  "(0, 3]": 0.3735226049142461,
-  "(3, 6]": 0.4602630084026377
+  "(12, 24]": 0.3105483633325596,
+  "(6, 12]": 0.4475286436533512
  },
- "generated": "2026-09-28T15:41:12.320658+00:00",
+ "generated": "2026-10-20T04:51:48.751005+00:00",
  "history": [
   {
    "fitted": {
@@ -88,69 +88,88 @@
     "(0, 3]",
     "(3, 6]"
    ]
+  },
+  {
+   "fitted": {
+    "(0, 3]": 0.3892823629197196,
+    "(12, 24]": 0.3105483633325596,
+    "(24, 48]": 0.6996403502775422,
+    "(3, 6]": 0.4449869848326162,
+    "(6, 12]": 0.4475286436533512
+   },
+   "generated": "2026-10-20T04:51:48.751005+00:00",
+   "promoted": [
+    "(12, 24]",
+    "(6, 12]"
+   ]
   }
  ],
  "verdicts": [
   {
    "band": "(0, 3]",
-   "damping": 0.3735226049142461,
-   "improvement": 1.0874172627060865,
-   "improvement_low": 0.4272763811543276,
-   "n": 624,
-   "periods": 603,
-   "previous_damping": 0.4008129426575838,
+   "damping": 0.3892823629197196,
+   "improvement": -1.3137144327747698,
+   "improvement_high": -0.6811148618268943,
+   "improvement_low": -1.8998923187500274,
+   "n": 837,
+   "periods": 827,
+   "previous_damping": 0.3735226049142461,
+   "promoted": false,
+   "reasons": [
+    "significantly worse out of sample (interval -1.900 to -0.681)"
+   ]
+  },
+  {
+   "band": "(12, 24]",
+   "damping": 0.3105483633325596,
+   "improvement": 0.24114019943571563,
+   "improvement_high": 0.32090884983365126,
+   "improvement_low": 0.1682421683247939,
+   "n": 3015,
+   "periods": 1404,
+   "previous_damping": null,
    "promoted": true,
    "reasons": []
   },
   {
-   "band": "(12, 24]",
-   "damping": 0.275037622423423,
-   "improvement": 0.039285658265875156,
-   "improvement_low": -0.02993852414456694,
-   "n": 2063,
-   "periods": 855,
-   "previous_damping": null,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -0.030)"
-   ]
-  },
-  {
    "band": "(24, 48]",
-   "damping": 0.894688477561692,
-   "improvement": -0.2706227513468704,
-   "improvement_low": -0.42986815478791546,
-   "n": 3220,
-   "periods": 832,
+   "damping": 0.6996403502775422,
+   "improvement": -0.19081556531935817,
+   "improvement_high": -0.0637532042903133,
+   "improvement_low": -0.3127840672456977,
+   "n": 4549,
+   "periods": 1392,
    "previous_damping": null,
    "promoted": false,
    "reasons": [
-    "interval includes zero (low -0.430)"
+    "significantly worse out of sample (interval -0.313 to -0.064)"
    ]
   },
   {
    "band": "(3, 6]",
-   "damping": 0.4602630084026377,
-   "improvement": 1.496081349843788,
-   "improvement_low": 0.7691505449791078,
-   "n": 605,
-   "periods": 587,
-   "previous_damping": 0.4546568840289959,
-   "promoted": true,
-   "reasons": []
+   "damping": 0.4449869848326162,
+   "improvement": 0.03583943542981771,
+   "improvement_high": 0.6289158830208428,
+   "improvement_low": -0.5610490957203077,
+   "n": 840,
+   "periods": 831,
+   "previous_damping": 0.4602630084026377,
+   "promoted": false,
+   "reasons": [
+    "interval includes zero (low -0.561)"
+   ]
   },
   {
    "band": "(6, 12]",
-   "damping": 0.45704404978816965,
-   "improvement": 0.16274398467017548,
-   "improvement_low": -0.13695214252868576,
-   "n": 1152,
-   "periods": 831,
+   "damping": 0.4475286436533512,
+   "improvement": 0.6249441986776638,
+   "improvement_high": 0.9567276920014371,
+   "improvement_low": 0.31006430251327266,
+   "n": 1592,
+   "periods": 1274,
    "previous_damping": null,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -0.137)"
-   ]
+   "promoted": true,
+   "reasons": []
   }
  ]
 }
