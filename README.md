@@ -8,29 +8,29 @@
 
 <!-- figures:start -->
 
-_Figures below regenerated 2026-10-19 from 49,051 settled half-hours and 460 captured forecast issues._
+_Figures below regenerated 2026-10-20 from 49,082 settled half-hours and 463 captured forecast issues._
 
 **Decision quality** — 2h contiguous load within 24h. Rows ending `_matched` face the same
 decisions as the published forecast; `_full` rows are a different sample.
 
 | forecaster             |    n |   mean_regret |   hit_rate |   captured_fraction |
 |:-----------------------|-----:|--------------:|-----------:|--------------------:|
-| published              |  442 |         8.051 |      0.199 |               0.908 |
-| corrected              |  442 |         7.645 |      0.197 |               0.914 |
-| seasonal_naive_matched |  442 |        17.216 |      0.088 |               0.828 |
-| seasonal_mean_matched  |  442 |        14.471 |      0.077 |               0.864 |
-| seasonal_naive_full    | 1013 |        17.474 |      0.074 |               0.808 |
-| seasonal_mean_full     | 1013 |        12.667 |      0.083 |               0.857 |
+| published              |  447 |         8.263 |      0.197 |               0.905 |
+| corrected              |  447 |         7.861 |      0.195 |               0.912 |
+| seasonal_naive_matched |  447 |        17.658 |      0.087 |               0.823 |
+| seasonal_mean_matched  |  447 |        14.887 |      0.076 |               0.858 |
+| seasonal_naive_full    | 1014 |        17.513 |      0.074 |               0.807 |
+| seasonal_mean_full     | 1014 |        12.705 |      0.083 |               0.857 |
 
 **Damping correction**, as the gate last judged it.
 
-| band     | verdict   |   damping |   improvement |   interval low |    n |
-|:---------|:----------|----------:|--------------:|---------------:|-----:|
-| (0, 3]   | held back |     0.389 |        -1.243 |         -1.886 |  820 |
-| (12, 24] | promoted  |     0.311 |         0.213 |          0.14  | 2922 |
-| (24, 48] | held back |     0.7   |        -0.19  |         -0.316 | 4398 |
-| (3, 6]   | held back |     0.445 |         0.238 |         -0.356 |  825 |
-| (6, 12]  | promoted  |     0.448 |         0.627 |          0.308 | 1565 |
+| band     | verdict   |   damping |   improvement |   interval low |   interval high |    n |
+|:---------|:----------|----------:|--------------:|---------------:|----------------:|-----:|
+| (0, 3]   | held back |     0.389 |        -1.314 |         -1.9   |          -0.681 |  837 |
+| (12, 24] | promoted  |     0.311 |         0.241 |          0.168 |           0.321 | 3015 |
+| (24, 48] | held back |     0.7   |        -0.191 |         -0.313 |          -0.064 | 4549 |
+| (3, 6]   | held back |     0.445 |         0.036 |         -0.561 |           0.629 |  840 |
+| (6, 12]  | promoted  |     0.448 |         0.625 |          0.31  |           0.957 | 1592 |
 
 **Seasonal drift** of intensity against summer, which is when the captured
 forecasts begin.
@@ -40,7 +40,7 @@ forecasts begin.
 | winter   |                0.285 | large shift    | 143.097 | 11521 |
 | spring   |                0.037 | stable         | 118.303 | 13248 |
 | summer   |                0     | stable         | 114.307 | 13217 |
-| autumn   |                0.121 | moderate shift | 129.421 | 11065 |
+| autumn   |                0.121 | moderate shift | 129.448 | 11096 |
 
 <!-- figures:end -->
 
@@ -251,7 +251,20 @@ and its variance is tiny with it, and the interval clears zero while the effect
 is nothing. One band was promoted that way before the threshold was added. That last condition is
 the one an interval cannot supply. Every run's coefficient is kept, promoted or
 not, so stability across refits is visible. The gate fails the build only when a
-band that had been promoted no longer qualifies.
+band that had been promoted no longer qualifies, and the withdrawal is recorded
+on the same run that fails, so the next run starts from the corrected record.
+That last point was learned the hard way: the commit step originally ran only on
+success, so a failing gate computed the withdrawal and discarded it, then failed
+identically every week after. A gate with no route back to green has one stable
+state, and it is off.
+
+In October the gate fired on two bands promoted in late summer. The correction
+had not merely stopped being provable at short lead — it had become reliably
+harmful, with the whole interval below zero, because the forecast's revisions
+turned persistently upward as intensity climbed and a symmetric coefficient
+damps a revision carrying news exactly as hard as one carrying jitter.
+Separating the two directions recovers four of the five bands out of sample
+across the season boundary. `docs/design.md` has the figures.
 
 The train-test split divides on the date that balances rows rather than the date
 at a fixed position, because this record's days are wildly uneven in size and a

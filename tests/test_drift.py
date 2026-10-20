@@ -204,6 +204,7 @@ def test_coefficient_drift_reports_the_spread_across_runs(record_path):
             damping=damping,
             improvement=1.0,
             improvement_low=0.5,
+            improvement_high=1.5,
             n=500,
             periods=150,
         )

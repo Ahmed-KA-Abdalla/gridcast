@@ -110,6 +110,7 @@ def build_report(
                     "damping": item.damping,
                     "improvement": item.improvement,
                     "interval low": item.improvement_low,
+                    "interval high": item.improvement_high,
                     "n": item.n,
                     "periods": item.periods,
                     "reasons": "; ".join(item.reasons) or "—",
@@ -121,7 +122,9 @@ def build_report(
             f"Fitted on {note.get('train_dates', 0)} days, scored on {note.get('test_dates', 0)}. "
             "A band is promoted only where the improvement's lower bound clears a tenth of a "
             "gCO2/kWh, the band carries enough held-out data, and the refitted coefficient is "
-            "close to the one it replaces."
+            "close to the one it replaces. Both bounds are shown because a band whose interval "
+            "lies wholly below zero is reliably harmful rather than merely unproven, and the "
+            "two call for opposite responses."
         )
         sections.append(_section("The damping correction", gate_note, _table(rows)))
 
@@ -270,6 +273,7 @@ def readme_block(
                     "damping": item.damping,
                     "improvement": item.improvement,
                     "interval low": item.improvement_low,
+                    "interval high": item.improvement_high,
                     "n": item.n,
                 }
                 for item in verdicts

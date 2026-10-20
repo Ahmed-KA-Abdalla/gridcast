@@ -73,6 +73,7 @@ class BandVerdict:
     damping: float
     improvement: float
     improvement_low: float
+    improvement_high: float
     n: int
     periods: int
     previous_damping: float | None = None
@@ -175,10 +176,19 @@ def _reasons(row: pd.Series, previous: float | None, thresholds: Thresholds) -> 
         reasons.append(f"{periods} distinct periods, needs {thresholds.min_periods}")
 
     low = row.get("improvement_low")
+    high = row.get("improvement_high")
     if low is None or not np.isfinite(low):
         reasons.append("no interval could be computed")
     elif low <= thresholds.min_improvement_low:
-        if low <= 0:
+        # Three distinct outcomes, which the reason has to tell apart. An
+        # interval wholly below zero says the correction is reliably harmful,
+        # not that it is unproven: the evidence is as strong as a promotion's
+        # and points the other way. Reporting that as "includes zero" invites
+        # the reader to wait for more data, when what is called for is
+        # withdrawing the band.
+        if high is not None and np.isfinite(high) and high < 0:
+            reasons.append(f"significantly worse out of sample (interval {low:.3f} to {high:.3f})")
+        elif low <= 0:
             reasons.append(f"interval includes zero (low {low:.3f})")
         else:
             reasons.append(
@@ -224,6 +234,7 @@ def evaluate_gate(
                 damping=float(row["damping"]),
                 improvement=float(row["improvement"]),
                 improvement_low=float(row.get("improvement_low", np.nan)),
+                improvement_high=float(row.get("improvement_high", np.nan)),
                 n=int(row["n"]),
                 periods=int(row.get("periods", 0) or 0),
                 previous_damping=prior,

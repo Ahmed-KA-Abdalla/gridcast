@@ -51,8 +51,17 @@ jobs:
         if: github.event_name != 'pull_request'
         run: gridcast gate --update
 
+      # Committed whether or not the gate passed, which is the whole point.
+      # `gridcast gate --update` writes the record and *then* exits non-zero on
+      # a regression, so a commit step gated on success never runs: the
+      # withdrawal is computed in the runner and thrown away, the next run reads
+      # the same stale record, and the job fails identically. The gate latched
+      # shut for three weeks that way, red every Monday for a verdict it had
+      # already reached and could not record. The record has to follow the
+      # evidence even when the evidence is bad news; the build still goes red
+      # once, which is the signal, and the following run starts from the truth.
       - name: Commit the verdict
-        if: github.event_name != 'pull_request'
+        if: ${{ always() && github.event_name != 'pull_request' }}
         run: |
           if [ -z "$(git status --porcelain docs/promoted.json)" ]; then
             echo "verdict unchanged"

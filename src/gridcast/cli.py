@@ -399,7 +399,7 @@ def gate(root: Path, record: Path, update: bool) -> int:
         print(
             f"{item.band:>10}  {mark:<10} damping {item.damping:.2f}{drift}, "
             f"improvement {item.improvement:+.3f} "
-            f"(low {item.improvement_low:+.3f}), "
+            f"({item.improvement_low:+.3f} to {item.improvement_high:+.3f}), "
             f"n={item.n} over {item.periods} periods"
         )
         for reason in item.reasons:

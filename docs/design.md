@@ -568,6 +568,101 @@ served as a static site or opened from disk. It is not committed: the workflow
 builds it and uploads it as a Pages artefact, which keeps generated output out
 of a repository whose value is that its data is the real record.
 
+## The gate fires, and two faults in it
+
+On 20 October the gate had been failing every Monday for three weeks. Two bands
+promoted on late-summer data, `(0, 3]` and `(3, 6]`, no longer qualified. The
+verdict was right and the project worked as intended: a claim recorded in the
+repository stopped holding, and the build said so without anyone asking. The
+machinery around that verdict had two faults, and the second is the serious one.
+
+**The reason given was wrong.** The gate reported `(0, 3]` as "interval includes
+zero". Its interval was −1.900 to −0.681, which does not include zero: the
+correction was not unproven at short lead, it was reliably harmful. The check
+branched on the lower bound alone and never consulted the upper one, so the two
+outcomes collapsed into the same sentence. They call for opposite responses — an
+interval straddling zero says wait for more data, one wholly below it says
+withdraw the band — and for three weeks the gate recommended waiting. The three
+readings are now distinguished, and `improvement_high` is carried on the verdict
+so the record keeps both bounds.
+
+**The gate could not clear itself.** `gridcast gate --update` writes the record
+and *then* exits non-zero on a regression. The workflow's commit step carried no
+`if:`, so it inherited the default and ran only on success. The sequence was
+therefore: detect the regression, compute the withdrawal, write it in the
+runner, exit 1, discard the runner. Nothing was committed, so the next run read
+the same stale record naming the same two bands and failed identically. The gate
+had latched shut. It would have stayed red every Monday indefinitely, for a
+verdict it had already reached and could not record.
+
+This is the failure mode that matters more than the message, because it is the
+one that gets a gate switched off. A check that goes red and stays red for
+reasons the reader cannot act on trains everyone to ignore it, and the
+three-week delay here was not the gate being ignored — it was the gate being
+unable to finish its own job. The commit step now runs with `always()`. The
+record follows the evidence even when the evidence is bad news; the build still
+goes red once, which is the signal; the following run starts from the truth.
+
+The general shape is worth naming: a gate needs a path back to green that does
+not require a human, or its only stable state is off.
+
+## Why the short bands turned
+
+The diagnosis matters because the obvious reading — a summer coefficient applied
+to autumn — is wrong, and acting on it would have been wasted work.
+
+The mechanism is intact. The correlation between a revision and the error still
+remaining is −0.349 at `(0, 3]`, essentially where it was in August, and the
+fitted coefficient has moved only from 0.44 to 0.39 across six refits. What
+changed is the composition of the revisions, not the forecast's tendency to
+overshoot. Over the training half the short-lead forecast ran slightly high
+(mean remaining error −1.2 gCO2/kWh); over the held-out half it runs low (+4.2),
+and the mean revision is strongly positive — +8.5, +12.6, +7.1 and +18.1
+gCO2/kWh by week — as intensity climbs into autumn. Damping a positive revision
+subtracts from a forecast that is already below the outcome. The correction
+pushed in the direction that was already wrong, which is why every bootstrap
+resample came out worse.
+
+Refitting inside autumn does not rescue it. Fitting on 20 September to 6 October
+and scoring on 7 to 19 October gives −1.203 (−2.227 to −0.205) at `(0, 3]` and
+−1.571 (−2.678 to −0.469) at `(3, 6]`. So this is not a stale coefficient. A
+single scalar damping cannot work here, because it cannot tell a revision that
+is jitter from a revision that is news, and it is asked to undo both by the same
+fraction.
+
+Separating the two directions says so plainly. Fitting one coefficient for
+upward revisions and one for downward, on the summer half, and scoring on the
+autumn half:
+
+| band | symmetric | asymmetric | up | down |
+| --- | --- | --- | --- | --- |
+| `(0, 3]` | −1.314 (−1.906, −0.703) | −0.860 (−1.535, −0.126) | 0.21 | 0.84 |
+| `(3, 6]` | +0.036 (−0.561, +0.636) | +1.014 (+0.401, +1.660) | 0.18 | 0.98 |
+| `(6, 12]` | +0.625 (+0.305, +0.953) | +2.458 (+1.951, +3.003) | 0.10 | 0.99 |
+| `(12, 24]` | +0.241 (+0.164, +0.318) | +1.149 (+1.012, +1.298) | −0.31 | 0.63 |
+| `(24, 48]` | −0.191 (−0.316, −0.071) | +0.994 (+0.819, +1.160) | 0.05 | 1.07 |
+
+Improvement in mean absolute error against the published forecast, gCO2/kWh,
+with 95% paired bootstrap intervals clustered by target period. Positive helps.
+
+The pattern is the same in all five bands and it is not subtle: a downward
+revision should be almost entirely undone, the coefficient running 0.63 to 1.07,
+while an upward revision should be largely followed, 0.05 to 0.21. NESO's
+downward revisions are mostly jitter; its upward revisions carry information. A
+symmetric coefficient splits the difference and gets both wrong, which is why it
+looked adequate in a season of small revisions and failed in a season of large
+upward ones.
+
+Two cautions. The downward coefficients at or above 1.0 say the pre-revision
+value was better than the revised one, which is a strong claim resting on one
+season boundary and should be re-tested as the record grows — it is exactly the
+kind of result the gate exists to re-ask. And `(0, 3]` remains harmful even with
+the asymmetry (−0.860, interval still wholly below zero), so the short-lead
+problem is improved rather than solved.
+
+This finding exists because the gate failed. That is the argument for the gate
+stated more cheaply than any amount of design reasoning could state it.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and

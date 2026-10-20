@@ -19,6 +19,7 @@ def row(
     damping: float = 0.45,
     improvement: float = 1.0,
     improvement_low: float = 0.5,
+    improvement_high: float = 1.5,
     n: int = 500,
     periods: int = 150,
 ):
@@ -30,6 +31,7 @@ def row(
             "damping": damping,
             "improvement": improvement,
             "improvement_low": improvement_low,
+            "improvement_high": improvement_high,
             "n": n,
             "periods": periods,
         }
@@ -43,6 +45,7 @@ def verdict(band: str, promoted: bool, reasons=None) -> BandVerdict:
         damping=0.45,
         improvement=1.0,
         improvement_low=0.5,
+        improvement_high=1.5,
         n=500,
         periods=150,
         reasons=reasons or [],
@@ -54,7 +57,24 @@ def test_a_band_meeting_every_condition_has_no_reasons_against_it():
 
 
 def test_an_interval_including_zero_blocks_promotion():
-    reasons = _reasons(row(improvement_low=-0.1), None, Thresholds())
+    reasons = _reasons(row(improvement_low=-0.1, improvement_high=0.8), None, Thresholds())
+    assert any("includes zero" in reason for reason in reasons)
+
+
+def test_an_interval_wholly_below_zero_is_reported_as_worse_not_as_unproven():
+    # The distinction decides what the reader should do. An interval straddling
+    # zero says wait for more data; one entirely below it says withdraw the
+    # band. Both fail the gate, and for three weeks the gate called the second
+    # of them the first, which read as a thin sample rather than a result.
+    reasons = _reasons(
+        row(improvement=-1.3, improvement_low=-1.9, improvement_high=-0.7), None, Thresholds()
+    )
+    assert any("significantly worse" in reason for reason in reasons)
+    assert not any("includes zero" in reason for reason in reasons)
+
+
+def test_a_missing_upper_bound_falls_back_to_the_includes_zero_reading():
+    reasons = _reasons(row(improvement_low=-0.1, improvement_high=float("nan")), None, Thresholds())
     assert any("includes zero" in reason for reason in reasons)
 
 
@@ -203,6 +223,39 @@ def test_gate_command_fails_when_a_promoted_band_regresses(overshooting_store, r
     )
     exit_code = main(["--root", str(overshooting_store), "gate", "--record", str(record)])
     assert exit_code == 1
+
+
+def test_a_failing_run_still_records_the_withdrawal(overshooting_store, record_path):
+    # The withdrawal has to survive the failure. `--update` writes the record
+    # and then exits non-zero, so a caller that only persists the record on a
+    # zero exit discards the one thing that would let the next run recover: the
+    # workflow did exactly that and the gate stayed red for three weeks,
+    # re-deciding a verdict it could never commit. A gate needs a route back to
+    # green that does not depend on someone noticing.
+    from gridcast.cli import main
+
+    record = record_path
+    record.write_text(
+        json.dumps({"coefficients": {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5}}),
+        encoding="utf-8",
+    )
+    exit_code = main(
+        ["--root", str(overshooting_store), "gate", "--record", str(record), "--update"]
+    )
+    assert exit_code == 1
+
+    # The stale claim has been replaced by what this run actually found, so the
+    # band it could not substantiate is no longer asserted anywhere.
+    written = load_record(record)
+    assert written != {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5}
+    assert "(6, 12]" not in written
+
+    # And the second run, reading what the first wrote, has nothing to regress
+    # from and passes. Without the write surviving the failure this run is
+    # identical to the first and the gate never recovers.
+    assert (
+        main(["--root", str(overshooting_store), "gate", "--record", str(record), "--update"]) == 0
+    )
 
 
 def test_gate_command_says_so_with_nothing_to_evaluate(tmp_path, capsys):
