@@ -1,8 +1,15 @@
 {
  "coefficients": {
-  "(12, 24]": 0.3319638458817908
+  "(3, 6]": {
+   "down": 0.7154107962640494,
+   "up": 0.18042300293039948
+  },
+  "(6, 12]": {
+   "down": 0.8596067333330026,
+   "up": 0.032325743586778595
+  }
  },
- "generated": "2026-10-26T14:26:31.954021+00:00",
+ "generated": "2026-10-28T06:47:25.820871+00:00",
  "history": [
   {
    "fitted": {
@@ -128,76 +135,139 @@
    "promoted": [
     "(12, 24]"
    ]
+  },
+  {
+   "fitted": {
+    "(0, 3]": {
+     "down": 0.5828000558153008,
+     "up": 0.12272176187088564
+    },
+    "(12, 24]": {
+     "down": 1.520965187527063,
+     "up": -0.3208664079128584
+    },
+    "(24, 48]": {
+     "down": 1.2887409017003753,
+     "up": -0.5578113705647569
+    },
+    "(3, 6]": {
+     "down": 0.7154107962640494,
+     "up": 0.18042300293039948
+    },
+    "(6, 12]": {
+     "down": 0.8596067333330026,
+     "up": 0.032325743586778595
+    }
+   },
+   "generated": "2026-10-28T06:47:25.820871+00:00",
+   "model": "asymmetric",
+   "promoted": [
+    "(3, 6]",
+    "(6, 12]"
+   ]
   }
  ],
+ "model": "asymmetric",
  "verdicts": [
   {
    "band": "(0, 3]",
-   "damping": 0.37632538167881946,
-   "improvement": -1.3626228784945553,
-   "improvement_high": -0.8162605056139906,
-   "improvement_low": -1.9140795180244,
-   "n": 900,
-   "periods": 888,
-   "previous_damping": null,
+   "damping_down": 0.5828000558153008,
+   "damping_up": 0.12272176187088564,
+   "down_range": 0.0435355903316349,
+   "folds": 5,
+   "folds_positive": 2,
+   "improvement": 0.052384151405584944,
+   "improvement_high": 0.4474164013363878,
+   "improvement_low": -0.3297654722655466,
+   "n": 1398,
+   "periods": 1371,
+   "previous_down": null,
+   "previous_up": null,
    "promoted": false,
    "reasons": [
-    "significantly worse out of sample (interval -1.914 to -0.816)"
-   ]
+    "interval includes zero (low -0.330)",
+    "helped in only 2 of 5 held-out blocks, needs 4"
+   ],
+   "up_range": 0.09516856456963044
   },
   {
    "band": "(12, 24]",
-   "damping": 0.3319638458817908,
-   "improvement": 0.27158260464642936,
-   "improvement_high": 0.3531645766550613,
-   "improvement_low": 0.19602687090409496,
-   "n": 3244,
-   "periods": 1505,
-   "previous_damping": 0.3105483633325596,
-   "promoted": true,
-   "reasons": []
+   "damping_down": 1.520965187527063,
+   "damping_up": -0.3208664079128584,
+   "down_range": 1.8648169221567907,
+   "folds": 5,
+   "folds_positive": 3,
+   "improvement": 0.753026690306811,
+   "improvement_high": 0.9170861974514032,
+   "improvement_low": 0.5995943006448964,
+   "n": 4937,
+   "periods": 2212,
+   "previous_down": null,
+   "previous_up": null,
+   "promoted": false,
+   "reasons": [
+    "helped in only 3 of 5 held-out blocks, needs 4",
+    "coefficient unstable across held-out blocks (up ranged 1.26, down ranged 1.86, limit 0.25)"
+   ],
+   "up_range": 1.2587203260142912
   },
   {
    "band": "(24, 48]",
-   "damping": 0.5994116384574647,
-   "improvement": -0.07005116915160414,
-   "improvement_high": 0.03337581712574148,
-   "improvement_low": -0.17503856722779626,
-   "n": 4902,
-   "periods": 1495,
-   "previous_damping": null,
+   "damping_down": 1.2887409017003753,
+   "damping_up": -0.5578113705647569,
+   "down_range": 2.0430376806008494,
+   "folds": 5,
+   "folds_positive": 3,
+   "improvement": -0.5532359597041285,
+   "improvement_high": -0.35501838274563413,
+   "improvement_low": -0.7449958417114705,
+   "n": 7634,
+   "periods": 2199,
+   "previous_down": null,
+   "previous_up": null,
    "promoted": false,
    "reasons": [
-    "interval includes zero (low -0.175)"
-   ]
+    "significantly worse out of sample (interval -0.745 to -0.355)",
+    "helped in only 3 of 5 held-out blocks, needs 4",
+    "coefficient unstable across held-out blocks (up ranged 2.80, down ranged 2.04, limit 0.25)"
+   ],
+   "up_range": 2.804376085712803
   },
   {
    "band": "(3, 6]",
-   "damping": 0.4368911587448393,
-   "improvement": -0.20192496022634288,
-   "improvement_high": 0.3307514927065009,
-   "improvement_low": -0.7189660480194905,
-   "n": 901,
-   "periods": 890,
-   "previous_damping": null,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -0.719)"
-   ]
+   "damping_down": 0.7154107962640494,
+   "damping_up": 0.18042300293039948,
+   "down_range": 0.08368947333938725,
+   "folds": 5,
+   "folds_positive": 4,
+   "improvement": 0.9659361428064592,
+   "improvement_high": 1.3333383540334378,
+   "improvement_low": 0.595583065694031,
+   "n": 1380,
+   "periods": 1356,
+   "previous_down": null,
+   "previous_up": null,
+   "promoted": true,
+   "reasons": [],
+   "up_range": 0.07038321011522033
   },
   {
    "band": "(6, 12]",
-   "damping": 0.4602163775025562,
-   "improvement": 0.23731046715607462,
-   "improvement_high": 0.544324787685045,
-   "improvement_low": -0.055088077605828914,
-   "n": 1711,
-   "periods": 1370,
-   "previous_damping": 0.44752864365335115,
-   "promoted": false,
-   "reasons": [
-    "interval includes zero (low -0.055)"
-   ]
+   "damping_down": 0.8596067333330026,
+   "damping_up": 0.032325743586778595,
+   "down_range": 0.10021006294349466,
+   "folds": 5,
+   "folds_positive": 5,
+   "improvement": 1.5785265329045046,
+   "improvement_high": 1.8688261933186976,
+   "improvement_low": 1.2756151783444492,
+   "n": 2632,
+   "periods": 2045,
+   "previous_down": null,
+   "previous_up": null,
+   "promoted": true,
+   "reasons": [],
+   "up_range": 0.09649908673852745
   }
  ]
 }
