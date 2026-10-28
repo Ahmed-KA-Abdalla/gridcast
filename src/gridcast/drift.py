@@ -199,17 +199,20 @@ def error_drift(root: Path = DEFAULT_ROOT, freq: str = "W") -> pd.DataFrame:
     return grouped.reset_index()
 
 
-def coefficient_drift(record: Path | None = None) -> pd.DataFrame:
-    """The promoted coefficients across gate runs, with their spread.
+def coefficient_drift(record: Path | None = None, model: str | None = None) -> pd.DataFrame:
+    """The fitted coefficients across gate runs, with their spread.
 
     Concept drift as this project can observe it. A coefficient that stays put
     while the input distribution moves is evidence the correction is a property
     of the forecast; one that tracks the seasons is evidence it is a property of
     the weather it was fitted in.
-    """
-    from .gate import DEFAULT_RECORD, coefficient_history
 
-    history = coefficient_history(record or DEFAULT_RECORD)
+    One row per band and direction, restricted to runs under the gate's current
+    model unless another is named, so a change of model does not read as drift.
+    """
+    from .gate import DEFAULT_RECORD, MODEL, coefficient_history
+
+    history = coefficient_history(record or DEFAULT_RECORD, model=model or MODEL)
     if history.empty:
         return pd.DataFrame()
 

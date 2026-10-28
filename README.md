@@ -8,29 +8,32 @@
 
 <!-- figures:start -->
 
-_Figures below regenerated 2026-10-26 from 49,382 settled half-hours and 497 captured forecast issues._
+_Figures below regenerated 2026-10-27 from 49,449 settled half-hours and 503 captured forecast issues._
 
 **Decision quality** — 2h contiguous load within 24h. Rows ending `_matched` face the same
 decisions as the published forecast; `_full` rows are a different sample.
 
 | forecaster             |    n |   mean_regret |   hit_rate |   captured_fraction |
 |:-----------------------|-----:|--------------:|-----------:|--------------------:|
-| published              |  480 |         8.643 |      0.19  |               0.898 |
-| corrected              |  480 |         8.87  |      0.19  |               0.895 |
-| seasonal_naive_matched |  480 |        17.977 |      0.083 |               0.813 |
-| seasonal_mean_matched  |  480 |        15.936 |      0.071 |               0.84  |
-| seasonal_naive_full    | 1020 |        17.552 |      0.074 |               0.806 |
-| seasonal_mean_full     | 1020 |        12.791 |      0.082 |               0.856 |
+| published              |  487 |         8.767 |      0.187 |               0.893 |
+| seasonal_naive_matched |  487 |        17.794 |      0.086 |               0.814 |
+| seasonal_mean_matched  |  487 |        15.803 |      0.07  |               0.84  |
+| seasonal_naive_full    | 1022 |        17.535 |      0.073 |               0.806 |
+| seasonal_mean_full     | 1022 |        12.77  |      0.082 |               0.856 |
 
-**Damping correction**, as the gate last judged it.
+**The promoted correction, out of sample** (asymmetric damping of (3, 6], (6, 12]): mean regret 10.883
+published against 9.370 corrected over 236 held-out decisions, a gain of +1.514 (+0.349 to +2.749), helped in 5 of 5 blocks.
 
-| band     | verdict   |   damping |   improvement |   interval low |   interval high |    n |
-|:---------|:----------|----------:|--------------:|---------------:|----------------:|-----:|
-| (0, 3]   | held back |     0.376 |        -1.363 |         -1.914 |          -0.816 |  900 |
-| (12, 24] | promoted  |     0.332 |         0.272 |          0.196 |           0.353 | 3244 |
-| (24, 48] | held back |     0.599 |        -0.07  |         -0.175 |           0.033 | 4902 |
-| (3, 6]   | held back |     0.437 |        -0.202 |         -0.719 |           0.331 |  901 |
-| (6, 12]  | held back |     0.46  |         0.237 |         -0.055 |           0.544 | 1711 |
+**Damping correction**, as the gate last judged it: separate coefficients for upward and downward revisions, scored on 5 consecutive
+held-out blocks, each fitted on every earlier date.
+
+| band     | verdict   |     up |   down |   improvement |   interval low |   interval high | blocks helped   |    n |
+|:---------|:----------|-------:|-------:|--------------:|---------------:|----------------:|:----------------|-----:|
+| (0, 3]   | held back |  0.123 |  0.579 |        -0.001 |         -0.38  |           0.391 | 2 of 5          | 1386 |
+| (12, 24] | held back | -0.311 |  1.498 |         0.712 |          0.543 |           0.88  | 3 of 5          | 4906 |
+| (24, 48] | held back | -0.551 |  1.275 |        -0.595 |         -0.783 |          -0.407 | 3 of 5          | 7587 |
+| (3, 6]   | promoted  |  0.184 |  0.714 |         0.954 |          0.578 |           1.341 | 4 of 5          | 1369 |
+| (6, 12]  | promoted  |  0.037 |  0.86  |         1.592 |          1.301 |           1.886 | 5 of 5          | 2614 |
 
 **Seasonal drift** of intensity against summer, which is when the captured
 forecasts begin.
@@ -40,7 +43,7 @@ forecasts begin.
 | winter   |                0.285 | large shift    | 143.097 | 11521 |
 | spring   |                0.037 | stable         | 118.303 | 13248 |
 | summer   |                0     | stable         | 114.307 | 13217 |
-| autumn   |                0.112 | moderate shift | 128.438 | 11396 |
+| autumn   |                0.111 | moderate shift | 128.144 | 11463 |
 
 <!-- figures:end -->
 
@@ -66,8 +69,9 @@ realised values, so that the two can be scored against each other.
 All figures are for a two-hour deferrable load with twenty-four hours of slack,
 over 322 decisions the published forecast faced between 20 August and 23
 September 2026, unless stated otherwise. Figures were last refreshed on 24
-September; the capture and gate workflows keep running, so a fresh run may
-disagree with what is written here.
+September, except those for the correction, refreshed on 27 October; the
+capture and gate workflows keep running, so a fresh run may disagree with what
+is written here.
 
 Several of these numbers have moved as the sample grew, and two reversed. Where
 that happened it is stated, because a result that changes with a third more data
@@ -95,9 +99,8 @@ most of what a scheduler needs.
 revisions are anticorrelated: -0.32 in the zero-to-three-hour band, -0.38 in
 three-to-six, -0.54 in six-to-twelve, and near zero beyond twelve hours where
 the forecast is barely revised at all. Subtracting a fitted share of the most
-recent revision reduces error out of sample — 1.01 gCO2/kWh in the
-zero-to-three-hour band with a bootstrap lower bound of +0.36, and 1.87 in
-three-to-six with a lower bound of +1.17.
+recent revision reduces error out of sample, provided upward and downward
+revisions are treated separately.
 
 **How much a forecast moves depends on how often you look.** An earlier version
 of this file reported median total movement of 117.5 gCO2/kWh against median net
@@ -107,18 +110,35 @@ about fifty times per period, and now read 48.0 and 13.0 at about eleven. The
 anticorrelation is the sampling-robust version of the same observation, and it
 is what the correction rests on.
 
-**Which band survives has moved.** The six-to-twelve-hour band cleared the
-promotion gate on three successive refits and no longer does. The short bands
-now clear instead. The fitted coefficients have been stable throughout — 0.40 to
-0.46 across every band under twelve hours, over five refits — so what moves is
-which band reaches significance, not the size of the effect.
+**The overshoot is asymmetric.** A downward revision is mostly retraced; an
+upward one mostly is not. Fitted separately, the coefficient on downward
+revisions is 0.71 at three to six hours and 0.86 at six to twelve, and on upward
+revisions 0.18 and 0.04. One coefficient for both directions, which is what the
+correction used until October, splits the difference and is wrong for both. It
+was promoted at short lead in September and was significantly harmful there by
+October, once autumn brought a run of large upward revisions.
 
-**The correction's effect on decisions is small.** The corrected forecast
-secured 91.5% against the published forecast's 90.7%, with mean regret 7.40
-against 7.86. On an earlier sample it changed no decisions at all. There is no
-interval on this comparison, so it is reported and not claimed. Damping
-subtracts a similar amount from every period in a window, and a near-uniform
-shift changes little ordering.
+Scored on five consecutive held-out blocks from 11 September to 27 October, each
+corrected with coefficients fitted on every earlier date, the asymmetric
+correction reduces mean absolute error by 1.59 gCO2/kWh at six to twelve hours
+(+1.30 to +1.89), helping in all five blocks, and by 0.95 at three to six
+(+0.58 to +1.34), helping in four. The symmetric correction manages 0.26 and
+0.52 on the same blocks. Under three hours neither helps. Beyond twelve hours the
+asymmetric coefficients swing between refits — the upward one from -0.50 to
++2.31 — so nothing there is claimed, although the pooled interval at twelve to
+twenty-four hours looks clean on its own.
+
+**The asymmetric correction improves decisions out of sample.** Applied to the
+same five blocks with coefficients fitted only on earlier dates, it reduced mean
+regret on the two-hour load from 10.88 to 9.37 gCO2/kWh over 236 decisions on 46
+days: a gain of 1.51 with an interval of +0.35 to +2.75, resampling whole days,
+positive in all five blocks. It changed 17% of decisions. The symmetric
+correction it replaces did not help decisions (-0.45, -1.16 to +0.14), and for a
+one-hour load within six hours the asymmetric gain is not significant (+0.31,
+-0.42 to +1.14). The bands applied were chosen by the gate on the same record,
+so their selection is informed by these blocks even though no coefficient is.
+An earlier version of this file said the correction changed almost no decisions;
+that described the symmetric correction scored in sample.
 
 **A model trained on the level improves decisions significantly.** Gradient
 boosting over the leak-safe features, fitted on 597 generated decisions from
@@ -237,38 +257,39 @@ because the sample matters more than it appears to: an earlier version compared
 the published forecast against baselines scored across the whole record, and the
 difference in available spread was large enough to reverse the ranking.
 
-`gridcast correct` fits one damping coefficient per lead band as the
-least-squares slope of the remaining error on the revision, in closed form, on
-earlier dates, and scores it on later ones. Each improvement carries a 95%
-interval from a paired bootstrap resampled by target period.
+`gridcast correct` fits, for each lead band, one damping coefficient for
+upward revisions and one for downward, as the least-squares fit of the
+correction actually applied: `corrected = published - damping * revision`, with
+no intercept. It scores the result on five consecutive held-out blocks, of
+roughly equal rows rather than equal days because capture has been uneven, each
+corrected with coefficients fitted on every earlier date and purged of the
+target periods the block scores, and reports the symmetric model alongside on
+the same blocks. Each improvement carries a 95% interval from a paired bootstrap
+resampled by target period.
 
-`gridcast gate` refits and promotes a band only where the improvement's lower
-bound clears a minimum worth claiming, the band carries enough held-out
-observations and distinct periods, and the refitted coefficient is close to the
-one it replaces. The bound is a tenth of a gCO2/kWh rather than zero: a
-coefficient near zero applies almost no correction, so its improvement is tiny
-and its variance is tiny with it, and the interval clears zero while the effect
-is nothing. One band was promoted that way before the threshold was added. That last condition is
-the one an interval cannot supply. Every run's coefficient is kept, promoted or
-not, so stability across refits is visible. The gate fails the build only when a
-band that had been promoted no longer qualifies, and the withdrawal is recorded
-on the same run that fails, so the next run starts from the corrected record.
-That last point was learned the hard way: the commit step originally ran only on
-success, so a failing gate computed the withdrawal and discarded it, then failed
-identically every week after. A gate with no route back to green has one stable
-state, and it is off.
+`gridcast gate` promotes a band only where the pooled improvement's lower bound
+clears a tenth of a gCO2/kWh, the band carries enough held-out observations and
+distinct periods, the correction helped in at least four blocks of five, and
+each coefficient moved by no more than 0.25 between the blocks' fits and against
+the last run's. The bound is a tenth rather than zero because a coefficient near
+zero applies almost no correction, so its interval clears zero while the effect
+is nothing; one band was promoted that way before the threshold was added. The
+block and stability checks exist because a single train-test split was not
+enough: the symmetric correction at short lead was significant on one split and
+significantly harmful on the next.
 
-In October the gate fired on two bands promoted in late summer. The correction
-had not merely stopped being provable at short lead — it had become reliably
-harmful, with the whole interval below zero, because the forecast's revisions
-turned persistently upward as intensity climbed and a symmetric coefficient
-damps a revision carrying news exactly as hard as one carrying jitter.
-Separating the two directions recovers four of the five bands out of sample
-across the season boundary. `docs/design.md` has the figures.
+The gate fails the build only when a band that had been promoted no longer
+qualifies under the same model, and records the withdrawal on the run that
+fails, so the next run starts from the corrected record. The commit step
+originally ran only on success, so a failing gate computed the withdrawal and
+discarded it, then failed identically every week after. A change of model is
+not a regression: the record names its model, and the bands a new model drops
+are listed when it takes over.
 
-The train-test split divides on the date that balances rows rather than the date
-at a fixed position, because this record's days are wildly uneven in size and a
-date-position split makes every result depend on the capture schedule.
+`gridcast schedule` reports the promoted correction's effect on decisions out of
+sample, on the same held-out blocks. It previously scored the corrected forecast
+beside the published one on the whole record, with coefficients fitted on that
+record, which flattered it.
 
 `docs/design.md` records the reasoning behind each of these, including the
 faults found along the way and what was ruled out.
@@ -302,18 +323,20 @@ pytest -m "not network"     # offline, against recorded fixtures
 pytest -m network           # exercises the live API
 ```
 
-328 tests, 95% line coverage. The offline suite needs no network. The
+360 offline tests and one network test, 94% line coverage. The offline suite
+needs no network. The
 network-marked tests check that the live API still returns the shape the parsers
 assume, and run daily rather than on every commit.
 
 ## What is missing
 
-One season. Everything here comes from late August 2026. The correction's
-coefficient may be a property of the forecast or of that fortnight's weather,
-and only time separates them — which is what the weekly gate exists to find out.
+One autumn. Captured forecasts begin on 20 August 2026, and the correction has
+been tested across the turn from summer into autumn but not into winter, which
+is a larger shift in the intensity distribution. Whether the asymmetry holds is
+what the weekly gate exists to find out.
 
-Small decision samples. Under 200 captured decisions, from one load shape at a
-time.
+Small decision samples. Under 500 captured decisions, from one load shape at a
+time, and 236 of them held out.
 
 The generation mix is absent for roughly the first twelve days of January in
 both 2025 and 2026, in contiguous blocks beginning within half an hour of the

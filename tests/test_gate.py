@@ -4,6 +4,7 @@ import json
 
 import numpy as np
 
+from gridcast.correction import BandDamping
 from gridcast.gate import (
     BandVerdict,
     Thresholds,
@@ -11,8 +12,13 @@ from gridcast.gate import (
     evaluate_gate,
     gate_passes,
     load_record,
+    record_model,
     write_record,
 )
+
+
+def sym(value: float) -> BandDamping:
+    return BandDamping.symmetric(value)
 
 
 def row(
@@ -22,18 +28,33 @@ def row(
     improvement_high: float = 1.5,
     n: int = 500,
     periods: int = 150,
+    up: float | None = None,
+    down: float | None = None,
+    folds: int = 5,
+    folds_positive: int = 5,
+    up_range: float = 0.05,
+    down_range: float = 0.05,
 ):
+    """A band that passes every check unless told otherwise.
+
+    ``damping`` sets both directions at once; ``up`` and ``down`` override it.
+    """
     import pandas as pd
 
     return pd.Series(
         {
             "band": "(6, 12]",
-            "damping": damping,
+            "damping_up": damping if up is None else up,
+            "damping_down": damping if down is None else down,
             "improvement": improvement,
             "improvement_low": improvement_low,
             "improvement_high": improvement_high,
             "n": n,
             "periods": periods,
+            "folds": folds,
+            "folds_positive": folds_positive,
+            "up_range": up_range,
+            "down_range": down_range,
         }
     )
 
@@ -42,7 +63,8 @@ def verdict(band: str, promoted: bool, reasons=None) -> BandVerdict:
     return BandVerdict(
         band=band,
         promoted=promoted,
-        damping=0.45,
+        damping_up=0.45,
+        damping_down=0.45,
         improvement=1.0,
         improvement_low=0.5,
         improvement_high=1.5,
@@ -53,7 +75,7 @@ def verdict(band: str, promoted: bool, reasons=None) -> BandVerdict:
 
 
 def test_a_band_meeting_every_condition_has_no_reasons_against_it():
-    assert _reasons(row(), previous=0.44, thresholds=Thresholds()) == []
+    assert _reasons(row(), previous=sym(0.44), thresholds=Thresholds()) == []
 
 
 def test_an_interval_including_zero_blocks_promotion():
@@ -98,17 +120,17 @@ def test_a_missing_interval_blocks_promotion():
 def test_a_coefficient_that_moves_too_far_blocks_promotion():
     # The condition an interval cannot supply: a coefficient swinging between
     # refits describes the sample, not the forecast.
-    reasons = _reasons(row(damping=0.93), previous=0.45, thresholds=Thresholds())
+    reasons = _reasons(row(damping=0.93), previous=sym(0.45), thresholds=Thresholds())
     assert any("moved" in reason for reason in reasons)
 
 
 def test_a_coefficient_that_changes_sign_blocks_promotion():
-    reasons = _reasons(row(damping=-0.10), previous=0.10, thresholds=Thresholds())
+    reasons = _reasons(row(damping=-0.10), previous=sym(0.10), thresholds=Thresholds())
     assert any("sign" in reason for reason in reasons)
 
 
 def test_a_small_drift_is_tolerated():
-    assert _reasons(row(damping=0.55), previous=0.45, thresholds=Thresholds()) == []
+    assert _reasons(row(damping=0.55), previous=sym(0.45), thresholds=Thresholds()) == []
 
 
 def test_a_band_with_no_history_is_judged_on_its_own_merits():
@@ -156,7 +178,7 @@ def test_the_record_round_trips(tmp_path):
     write_record([verdict("(6, 12]", True), verdict("(0, 3]", False)], path=path)
 
     stored = load_record(path)
-    assert stored == {"(6, 12]": 0.45}
+    assert stored == {"(6, 12]": sym(0.45)}
 
 
 def test_the_record_keeps_the_failing_bands_and_their_reasons(tmp_path):
@@ -218,7 +240,12 @@ def test_gate_command_fails_when_a_promoted_band_regresses(overshooting_store, r
     # Claim every band was promoted last time, including ones that cannot
     # qualify, so the run must report a regression.
     record.write_text(
-        json.dumps({"coefficients": {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5}}),
+        json.dumps(
+            {
+                "model": "asymmetric",
+                "coefficients": {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5},
+            }
+        ),
         encoding="utf-8",
     )
     exit_code = main(["--root", str(overshooting_store), "gate", "--record", str(record)])
@@ -236,7 +263,12 @@ def test_a_failing_run_still_records_the_withdrawal(overshooting_store, record_p
 
     record = record_path
     record.write_text(
-        json.dumps({"coefficients": {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5}}),
+        json.dumps(
+            {
+                "model": "asymmetric",
+                "coefficients": {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5},
+            }
+        ),
         encoding="utf-8",
     )
     exit_code = main(
@@ -247,7 +279,7 @@ def test_a_failing_run_still_records_the_withdrawal(overshooting_store, record_p
     # The stale claim has been replaced by what this run actually found, so the
     # band it could not substantiate is no longer asserted anywhere.
     written = load_record(record)
-    assert written != {"(0, 3]": 0.5, "(3, 6]": 0.5, "(6, 12]": 0.5}
+    assert written != {band: sym(0.5) for band in ("(0, 3]", "(3, 6]", "(6, 12]")}
     assert "(6, 12]" not in written
 
     # And the second run, reading what the first wrote, has nothing to regress
@@ -286,8 +318,10 @@ def test_the_history_accumulates_across_runs(record_path):
     write_record([verdict("(6, 12]", True)], path=record_path, generated="2026-08-30T00:00:00Z")
 
     history = coefficient_history(record_path)
-    assert history.shape == (1, 2)
-    assert history.loc["(6, 12]"].tolist() == [0.45, 0.45]
+    # One row per direction, one column per run.
+    assert history.shape == (2, 2)
+    assert history.loc[("(6, 12]", "up")].tolist() == [0.45, 0.45]
+    assert history.loc[("(6, 12]", "down")].tolist() == [0.45, 0.45]
 
 
 def test_the_history_keeps_bands_that_were_not_promoted(record_path):
@@ -301,7 +335,7 @@ def test_the_history_keeps_bands_that_were_not_promoted(record_path):
         generated="2026-08-29T00:00:00Z",
     )
     history = coefficient_history(record_path)
-    assert "(0, 3]" in history.index
+    assert "(0, 3]" in history.index.get_level_values("band")
 
 
 def test_the_history_is_capped(record_path):
@@ -387,3 +421,163 @@ def test_the_reason_distinguishes_a_negative_bound_from_a_negligible_one():
 
     assert any("includes zero" in reason for reason in negative)
     assert any("too small to claim" in reason for reason in negligible)
+
+
+# -- consistency across held-out blocks ------------------------------------
+
+
+def test_an_improvement_carried_by_one_block_is_not_promoted():
+    # What a single split could not see. The pooled interval here is clean, but
+    # the correction helped in only three of five stretches of weeks; the
+    # symmetric correction at short lead looked exactly like this before it
+    # turned harmful.
+    reasons = _reasons(row(folds=5, folds_positive=3), None, Thresholds())
+    assert any("helped in only 3 of 5" in reason for reason in reasons)
+
+
+def test_four_blocks_in_five_is_enough():
+    assert _reasons(row(folds=5, folds_positive=4), None, Thresholds()) == []
+
+
+def test_too_few_blocks_cannot_establish_consistency():
+    reasons = _reasons(row(folds=2, folds_positive=2), None, Thresholds())
+    assert any("held-out blocks, needs 3" in reason for reason in reasons)
+
+
+def test_a_coefficient_that_swings_between_blocks_is_not_promoted():
+    # The long-lead bands on the real record: a clean pooled interval, and an
+    # upward coefficient ranging from -0.50 to 2.31 across the blocks' fits.
+    reasons = _reasons(row(up_range=1.34, down_range=0.05), None, Thresholds())
+    assert any("unstable across held-out blocks" in reason for reason in reasons)
+    assert any("up ranged 1.34" in reason for reason in reasons)
+    assert not any("down ranged" in reason for reason in reasons)
+
+
+def test_each_direction_is_checked_for_drift_from_the_last_run():
+    reasons = _reasons(
+        row(up=0.10, down=0.80), previous=BandDamping(0.10, 0.40), thresholds=Thresholds()
+    )
+    assert any("down coefficient moved 0.40" in reason for reason in reasons)
+    assert not any(reason.startswith("up coefficient") for reason in reasons)
+
+
+def test_a_zero_coefficient_has_no_sign_to_change():
+    # Zero means too little data in that direction last time, not a sign.
+    reasons = _reasons(
+        row(up=0.10, down=0.70), previous=BandDamping(0.0, 0.70), thresholds=Thresholds()
+    )
+    assert not any("changed sign" in reason for reason in reasons)
+
+
+# -- the model ------------------------------------------------------------
+
+
+def test_the_record_stores_the_model_and_both_directions(record_path):
+    write_record(
+        [
+            BandVerdict(
+                band="(6, 12]",
+                promoted=True,
+                damping_up=0.04,
+                damping_down=0.86,
+                improvement=1.6,
+                improvement_low=1.3,
+                improvement_high=1.9,
+                n=2600,
+                periods=2000,
+            )
+        ],
+        path=record_path,
+    )
+    payload = json.loads(record_path.read_text(encoding="utf-8"))
+
+    assert payload["model"] == "asymmetric"
+    assert payload["coefficients"] == {"(6, 12]": {"up": 0.04, "down": 0.86}}
+    assert payload["history"][-1]["model"] == "asymmetric"
+    assert load_record(record_path) == {"(6, 12]": BandDamping(0.04, 0.86)}
+
+
+def test_a_record_from_before_the_asymmetric_model_reads_as_symmetric(record_path):
+    # docs/promoted.json as it stood on 27 October: one number per band, no model.
+    record_path.write_text(
+        json.dumps({"coefficients": {"(12, 24]": 0.332}, "history": []}), encoding="utf-8"
+    )
+    assert record_model(record_path) == "symmetric"
+    assert load_record(record_path) == {"(12, 24]": BandDamping(0.332, 0.332)}
+
+
+def test_there_is_no_model_without_a_record(record_path):
+    assert record_model(record_path) is None
+
+
+def test_a_change_of_model_is_not_a_regression():
+    # The previous record's promotions were claims about another correction.
+    # Replacing it is a commit, not a claim ceasing to hold, but the bands it
+    # drops must still be named so the replacement is visible.
+    verdicts = [
+        verdict("(6, 12]", promoted=True),
+        verdict("(12, 24]", promoted=False, reasons=["coefficient unstable"]),
+    ]
+    passes, message = gate_passes(
+        verdicts, previous={"(12, 24]": sym(0.33)}, previous_model="symmetric"
+    )
+
+    assert passes
+    assert "symmetric model" in message
+    assert "not carried over: (12, 24]" in message
+    assert "(6, 12]" in message
+
+
+def test_the_same_model_still_fails_on_regression():
+    verdicts = [verdict("(6, 12]", promoted=False, reasons=["interval includes zero"])]
+    passes, _ = gate_passes(verdicts, previous={"(6, 12]": sym(0.46)}, previous_model="asymmetric")
+    assert not passes
+
+
+def test_coefficients_from_another_model_are_not_drifted_from(overshooting_store, record_path):
+    # A symmetric 0.95 against an asymmetric fit near 0.5 would read as a move
+    # of 0.45 in each direction, which is a change of model and not drift.
+    record_path.write_text(
+        json.dumps({"coefficients": {"(0, 3]": 0.95, "(3, 6]": 0.95}}), encoding="utf-8"
+    )
+    verdicts, note = evaluate_gate(overshooting_store, record=record_path)
+
+    assert note["previous_model"] == "symmetric"
+    assert verdicts
+    for item in verdicts:
+        assert item.previous is None
+        assert not any("moved" in reason for reason in item.reasons)
+
+
+def test_the_history_can_be_restricted_to_one_model(record_path):
+    from gridcast.gate import coefficient_history
+
+    write_record(
+        [verdict("(6, 12]", True)],
+        path=record_path,
+        generated="2026-10-20T00:00:00Z",
+        model="symmetric",
+    )
+    write_record([verdict("(6, 12]", True)], path=record_path, generated="2026-10-27T00:00:00Z")
+
+    assert coefficient_history(record_path).shape[1] == 2
+    assert coefficient_history(record_path, model="asymmetric").shape[1] == 1
+    assert list(coefficient_history(record_path, model="symmetric").columns) == [
+        "2026-10-20T00:00:00Z"
+    ]
+
+
+def test_the_gate_on_an_overshooting_store_promotes_and_records_the_model(
+    overshooting_store, record_path, capsys
+):
+    from gridcast.cli import main
+
+    assert (
+        main(["--root", str(overshooting_store), "gate", "--record", str(record_path), "--update"])
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "asymmetric model" in out
+    assert "helped in" in out
+    assert record_model(record_path) == "asymmetric"
+    assert load_record(record_path)

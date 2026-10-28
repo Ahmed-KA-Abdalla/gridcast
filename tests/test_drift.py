@@ -198,10 +198,12 @@ def test_coefficient_drift_reports_the_spread_across_runs(record_path):
     from gridcast.gate import BandVerdict, write_record
 
     def verdict(damping: float) -> BandVerdict:
+        # The upward coefficient moves; the downward one holds at 0.80.
         return BandVerdict(
             band="(6, 12]",
             promoted=True,
-            damping=damping,
+            damping_up=damping,
+            damping_down=0.80,
             improvement=1.0,
             improvement_low=0.5,
             improvement_high=1.5,
@@ -214,13 +216,43 @@ def test_coefficient_drift_reports_the_spread_across_runs(record_path):
             [verdict(value)], path=record_path, generated=f"2026-09-0{index + 1}T00:00:00Z"
         )
 
-    scored = coefficient_drift(record_path)
-    row = scored.iloc[0]
+    scored = coefficient_drift(record_path).set_index(["band", "direction"])
+    up = scored.loc[("(6, 12]", "up")]
+    down = scored.loc[("(6, 12]", "down")]
 
-    assert row["runs"] == 3
-    assert row["first"] == pytest.approx(0.46)
-    assert row["latest"] == pytest.approx(0.52)
-    assert row["range"] == pytest.approx(0.08)
+    assert up["runs"] == 3
+    assert up["first"] == pytest.approx(0.46)
+    assert up["latest"] == pytest.approx(0.52)
+    assert up["range"] == pytest.approx(0.08)
+    assert down["range"] == pytest.approx(0.0)
+
+
+def test_coefficient_drift_ignores_runs_under_another_model(record_path):
+    # A switch from symmetric to asymmetric fitting is a change of model; shown
+    # as drift it would look like the largest movement on record.
+    from gridcast.gate import BandVerdict, write_record
+
+    def verdict(up: float, down: float) -> BandVerdict:
+        return BandVerdict(
+            band="(6, 12]",
+            promoted=True,
+            damping_up=up,
+            damping_down=down,
+            improvement=1.0,
+            improvement_low=0.5,
+            improvement_high=1.5,
+            n=500,
+            periods=150,
+        )
+
+    write_record(
+        [verdict(0.46, 0.46)], path=record_path, generated="2026-10-20T00:00Z", model="symmetric"
+    )
+    write_record([verdict(0.04, 0.86)], path=record_path, generated="2026-10-27T00:00Z")
+
+    scored = coefficient_drift(record_path)
+    assert (scored["runs"] == 1).all()
+    assert (scored["range"] == 0).all()
 
 
 def test_coefficient_drift_is_empty_without_a_record(record_path):

@@ -7,11 +7,14 @@ import pandas as pd
 import pytest
 
 from gridcast.correction import (
+    BandDamping,
     Damping,
     apply_damping,
-    evaluate_correction,
+    evaluate_rolling,
     fit_damping,
     revision_frame,
+    rolling_blocks,
+    rolling_evaluation,
     split_by_date,
 )
 
@@ -46,7 +49,11 @@ def test_a_forecast_that_overshoots_gives_positive_damping():
     errors = -0.4 * revisions + rng.normal(0, 1, 200)
 
     damping = fit_damping(frame_from(list(revisions), list(errors)))
-    assert damping.for_band("(0, 3]") == pytest.approx(0.4, abs=0.05)
+    fitted = damping.for_band("(0, 3]")
+    # The overshoot is the same in both directions here, so both coefficients
+    # should find it.
+    assert fitted.up == pytest.approx(0.4, abs=0.05)
+    assert fitted.down == pytest.approx(0.4, abs=0.05)
 
 
 def test_a_forecast_that_under_reacts_gives_negative_damping():
@@ -57,7 +64,8 @@ def test_a_forecast_that_under_reacts_gives_negative_damping():
     errors = 0.3 * revisions + rng.normal(0, 1, 200)
 
     damping = fit_damping(frame_from(list(revisions), list(errors)))
-    assert damping.for_band("(0, 3]") < 0
+    assert damping.for_band("(0, 3]").up < 0
+    assert damping.for_band("(0, 3]").down < 0
 
 
 def test_an_efficient_forecast_gives_damping_near_zero():
@@ -66,20 +74,23 @@ def test_an_efficient_forecast_gives_damping_near_zero():
     errors = rng.normal(0, 10, 400)
 
     damping = fit_damping(frame_from(list(revisions), list(errors)))
-    assert abs(damping.for_band("(0, 3]")) < 0.15
+    assert abs(damping.for_band("(0, 3]").up) < 0.15
+    assert abs(damping.for_band("(0, 3]").down) < 0.15
 
 
 def test_a_band_with_too_few_observations_is_left_alone():
     # Passing the published forecast through unchanged is the safe default; a
     # coefficient fitted on a handful of rows would be noise.
     damping = fit_damping(frame_from([1.0, -1.0, 2.0], [1.0, -1.0, 2.0]))
-    assert damping.for_band("(0, 3]") == 0.0
+    assert damping.for_band("(0, 3]").is_zero
     assert damping.counts["(0, 3]"] == 3
 
 
 def test_a_band_whose_revisions_never_vary_is_left_alone():
+    # Through the origin a constant revision still yields a number, but it is
+    # only the mean error rescaled: a bias correction labelled as damping.
     damping = fit_damping(frame_from([5.0] * 50, list(np.arange(50.0))))
-    assert damping.for_band("(0, 3]") == 0.0
+    assert damping.for_band("(0, 3]").is_zero
 
 
 def test_each_band_is_fitted_separately():
@@ -90,8 +101,64 @@ def test_each_band_is_fitted_separately():
     long["remaining_error"] = 0.0
 
     damping = fit_damping(pd.concat([short, long], ignore_index=True))
-    assert damping.for_band("(0, 3]") == pytest.approx(0.5, abs=0.05)
-    assert damping.for_band("(24, 48]") == pytest.approx(0.0, abs=0.05)
+    assert damping.for_band("(0, 3]").up == pytest.approx(0.5, abs=0.05)
+    assert damping.for_band("(0, 3]").down == pytest.approx(0.5, abs=0.05)
+    assert damping.for_band("(24, 48]").up == pytest.approx(0.0, abs=0.05)
+    assert damping.for_band("(24, 48]").down == pytest.approx(0.0, abs=0.05)
+
+
+def test_upward_and_downward_revisions_are_damped_separately():
+    # The shape the real record shows: a downward revision mostly retraced, an
+    # upward one mostly believed.
+    rng = np.random.default_rng(4)
+    revisions = rng.normal(0, 10, 600)
+    errors = np.where(revisions > 0, -0.1, -0.8) * revisions + rng.normal(0, 1, 600)
+
+    frame = frame_from(list(revisions), list(errors))
+    asymmetric = fit_damping(frame, "asymmetric").for_band("(0, 3]")
+    symmetric = fit_damping(frame, "symmetric").for_band("(0, 3]")
+
+    assert asymmetric.up == pytest.approx(0.1, abs=0.05)
+    assert asymmetric.down == pytest.approx(0.8, abs=0.05)
+    # One coefficient splits the difference and is wrong for both directions.
+    assert symmetric.up == symmetric.down
+    assert 0.2 < symmetric.up < 0.7
+
+
+def test_the_coefficient_is_the_least_squares_fit_of_the_model_applied():
+    # The fault this replaced. The correction is forecast - damping * revision,
+    # with no intercept, so the coefficient must minimise that model's squared
+    # error. The centred slope, -cov/var, fits a model with an intercept, and
+    # within one direction of revision, where every value has the same sign,
+    # the two disagree badly.
+    rng = np.random.default_rng(5)
+    revisions = rng.uniform(1, 20, 300)
+    errors = 3.0 - 0.2 * revisions + rng.normal(0, 1, 300)
+    frame = frame_from(list(revisions), list(errors))
+
+    fitted = fit_damping(frame, "asymmetric").for_band("(0, 3]").up
+
+    grid = np.linspace(-1.0, 1.0, 20001)
+    squared = [((errors + c * revisions) ** 2).sum() for c in grid]
+    assert fitted == pytest.approx(grid[int(np.argmin(squared))], abs=1e-3)
+
+    centred = -np.cov(errors, revisions, bias=True)[0, 1] / np.var(revisions)
+    assert abs(centred - fitted) > 0.1
+
+
+def test_the_symmetric_model_gives_equal_coefficients():
+    rng = np.random.default_rng(6)
+    revisions = rng.normal(0, 10, 200)
+    errors = -0.4 * revisions + rng.normal(0, 1, 200)
+
+    fitted = fit_damping(frame_from(list(revisions), list(errors)), "symmetric")
+    assert fitted.for_band("(0, 3]").up == fitted.for_band("(0, 3]").down
+    assert fitted.model == "symmetric"
+
+
+def test_an_unknown_model_is_refused():
+    with pytest.raises(ValueError, match="unknown model"):
+        fit_damping(frame_from([1.0], [1.0]), "quadratic")
 
 
 def test_apply_damping_subtracts_the_fitted_share_of_the_revision():
@@ -101,6 +168,20 @@ def test_apply_damping_subtracts_the_fitted_share_of_the_revision():
     assert corrected["corrected"].iloc[0] == pytest.approx(95.0)
     assert corrected["published_abs_error"].iloc[0] == pytest.approx(0.0)
     assert corrected["corrected_abs_error"].iloc[0] == pytest.approx(5.0)
+
+
+def test_the_coefficient_applied_follows_the_direction_of_the_revision():
+    frame = frame_from([10.0, -10.0], [0.0, 0.0])
+    corrected = apply_damping(frame, Damping({"(0, 3]": BandDamping(up=0.5, down=0.2)}, {}))
+
+    # Up by 10, half undone; down by 10, a fifth undone.
+    assert corrected["corrected"].tolist() == pytest.approx([95.0, 102.0])
+
+
+def test_a_bare_number_reads_as_a_symmetric_coefficient():
+    # How every record written before the asymmetric model stores a band.
+    assert Damping({"(0, 3]": 0.46}, {}).for_band("(0, 3]") == BandDamping(0.46, 0.46)
+    assert BandDamping.coerce({"up": 0.1, "down": 0.8}) == BandDamping(0.1, 0.8)
 
 
 def test_a_band_without_a_coefficient_passes_through_unchanged():
@@ -191,28 +272,103 @@ def test_revision_frame_carries_the_error_remaining_after_each_revision(overshoo
     assert np.allclose(frame["remaining_error"], reconstructed)
 
 
-def test_evaluation_fits_on_earlier_dates_and_scores_on_later_ones(overshooting_store):
-    summary, damping, note = evaluate_correction(overshooting_store)
-
-    assert not summary.empty
-    assert note["train_dates"] > 0
-    assert note["test_dates"] > 0
-    # No date appears in both.
-    assert note["train_rows"] + note["test_rows"] == len(revision_frame(overshooting_store))
+def dated_frame(rows_per_day: list[int]) -> pd.DataFrame:
+    """A revision frame with the given number of rows on consecutive days."""
+    dates = []
+    for offset, count in enumerate(rows_per_day):
+        dates.extend([dt.date(2026, 8, 1) + dt.timedelta(days=offset)] * count)
+    return frame_from([1.0] * len(dates), [1.0] * len(dates), dates=dates)
 
 
-def test_an_overshooting_forecast_is_improved_out_of_sample(overshooting_store):
-    summary, _, _ = evaluate_correction(overshooting_store)
+def test_rolling_blocks_are_consecutive_and_never_start_on_the_first_date():
+    frame = dated_frame([10] * 20)
+    blocks = rolling_blocks(frame, folds=5, first_fit_fraction=0.4)
+
+    assert len(blocks) == 5
+    assert blocks[0][0] > min(frame["date"])
+    for (_, last), (first, _) in zip(blocks[:-1], blocks[1:], strict=True):
+        assert first == last + dt.timedelta(days=1)
+    assert blocks[-1][1] == max(frame["date"])
+
+
+def test_rolling_blocks_balance_rows_when_days_are_uneven():
+    # Dense early days and sparse late ones, the shape of this record after
+    # capture collapsed. Blocks placed by date position would leave the first
+    # fit with almost every row and the blocks with almost none.
+    frame = dated_frame([100] * 4 + [5] * 40)
+    first, _ = rolling_blocks(frame, folds=5, first_fit_fraction=0.4)[0]
+
+    share = (frame["date"] < first).mean()
+    assert 0.3 < share < 0.5
+
+
+def test_a_short_record_yields_fewer_blocks_rather_than_empty_ones():
+    blocks = rolling_blocks(dated_frame([10, 10, 10]), folds=5)
+    assert 1 <= len(blocks) < 5
+    assert all(first <= last for first, last in blocks)
+
+
+def test_a_record_of_one_date_cannot_be_held_out():
+    assert rolling_blocks(dated_frame([10])) == []
+    assert rolling_blocks(pd.DataFrame()) == []
+
+
+def test_no_block_is_fitted_on_its_own_dates_or_its_own_periods(overshooting_store, monkeypatch):
+    # The two leaks a rolling evaluation can have. A fit that sees the block's
+    # dates is in sample. A fit that sees an earlier revision of a period the
+    # block scores has seen that period's outcome, which a date boundary alone
+    # does not prevent: a period's first revisions can fall the day before.
+    import gridcast.correction as correction
+
+    frame = revision_frame(overshooting_store)
+    calls = []
+    original = correction.fit_damping
+
+    def spy(fit_frame, model=correction.DEFAULT_MODEL):
+        calls.append(fit_frame)
+        return original(fit_frame, model)
+
+    monkeypatch.setattr(correction, "fit_damping", spy)
+    blocks = rolling_blocks(frame)
+    correction.rolling_evaluation(frame, resamples=50)
+
+    # One fit per block, then one on the whole record for promotion.
+    assert len(calls) == len(blocks) + 1
+    for fitted, (first, last) in zip(calls[:-1], blocks, strict=True):
+        held = frame[(frame["date"] >= first) & (frame["date"] <= last)]
+        assert fitted["date"].max() < first
+        assert not set(fitted["period_start"]) & set(held["period_start"])
+    assert len(calls[-1]) == len(frame)
+
+
+def test_an_overshooting_forecast_is_improved_in_every_block(overshooting_store):
+    summary, damping, per_fold, note = evaluate_rolling(overshooting_store, resamples=300)
     scored = summary[summary["n"] >= 30]
 
     assert not scored.empty
+    assert note["folds"] >= 3
     assert (scored["improvement"] > 0).all()
+    assert (scored["folds_positive"] == scored["folds"]).all()
+    assert scored["significant"].all()
+    # The fixture overshoots by the same amount either way, so both directions
+    # find about a half and the fits barely move between blocks.
+    assert np.allclose(scored["damping_up"], 0.5, atol=0.1)
+    assert np.allclose(scored["damping_down"], 0.5, atol=0.1)
+    assert (scored[["up_range", "down_range"]] < 0.25).all().all()
+
+
+def test_the_promoted_coefficients_are_fitted_on_the_whole_record(overshooting_store):
+    frame = revision_frame(overshooting_store)
+    _, damping, _, _ = rolling_evaluation(frame, resamples=50)
+    assert damping == fit_damping(frame)
 
 
 def test_everything_is_empty_on_an_empty_store(tmp_path):
-    summary, damping, note = evaluate_correction(tmp_path)
+    summary, damping, per_fold, note = evaluate_rolling(tmp_path)
     assert summary.empty
+    assert per_fold.empty
     assert damping.coefficients == {}
+    assert "reason" in note
 
 
 def test_correct_command_reports_the_split_and_the_result(overshooting_store, capsys):
@@ -222,6 +378,10 @@ def test_correct_command_reports_the_split_and_the_result(overshooting_store, ca
     out = capsys.readouterr().out
     assert "fitted on" in out
     assert "out-of-sample error" in out
+    # Both models are scored the same way, so the comparison is between models.
+    assert "symmetric" in out
+    assert "asymmetric" in out
+    assert "held-out block" in out
 
 
 def test_correct_command_says_so_when_there_is_nothing_to_fit(tmp_path, capsys):
@@ -319,19 +479,6 @@ def test_an_interval_needs_more_than_one_period():
     assert bootstrap_improvement(frame) == {}
 
 
-def test_evaluation_with_intervals_marks_which_bands_are_significant(overshooting_store):
-    from gridcast.correction import evaluate_with_intervals
-
-    summary, _, note = evaluate_with_intervals(overshooting_store, resamples=300)
-
-    assert not summary.empty
-    assert "improvement_low" in summary.columns
-    assert "significant" in summary.columns
-    assert note["resamples"] == 300
-    # The fixture overshoots by construction, so at least one band should hold up.
-    assert summary["significant"].any()
-
-
 # -- the corrected record -------------------------------------------------
 
 
@@ -369,8 +516,8 @@ def test_the_correction_moves_the_forecast_against_its_latest_revision():
     frame["issue_index"] = [0, 1]
 
     band = pd.cut(frame["horizon_hours"], bins=list(LEAD_BINS), right=True).astype(str)
-    factors = band.map(damping.for_band).fillna(0.0)
-    corrected = frame["forecast"] - factors * frame["revision"].fillna(0.0)
+    revision = frame["revision"].fillna(0.0)
+    corrected = frame["forecast"] - damping.factors(band, revision) * revision
 
     # First capture revised nothing, so it passes through; the second revised
     # upwards by 20 and so is pulled back by half of it.

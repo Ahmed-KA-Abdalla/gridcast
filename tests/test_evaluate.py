@@ -258,19 +258,68 @@ def test_schedule_command_says_so_on_an_empty_store(tmp_path, capsys):
     assert "no settled outcomes" in capsys.readouterr().out
 
 
-def test_the_corrected_forecast_is_scheduled_beside_the_published_one(schedulable_store):
-    # The project's central claim tested against itself: accuracy and decision
-    # quality are different questions, so a correction that improves the first
-    # need not improve the second.
+def test_the_corrected_forecast_is_not_scored_in_sample(schedulable_store):
+    # Its coefficients are fitted on this record, so a row here would be graded
+    # on its own homework. It is scored out of sample by correction_decisions.
     from gridcast.evaluate import compare_schedulers
     from gridcast.scheduling import Load
 
     scored = compare_schedulers(schedulable_store, Load(periods=2, window_hours=5.0))
-    if "published" not in scored.index or scored.loc["published", "n"] == 0:
-        pytest.skip("fixture produced no scoreable decision")
+    assert "corrected" not in scored.index
 
-    assert "corrected" in scored.index
-    # Same decisions, so the same amount was at stake.
-    assert scored.loc["corrected", "mean_available"] == pytest.approx(
-        scored.loc["published", "mean_available"]
+
+def promoted_record(path, bands, model="asymmetric"):
+    import json
+
+    path.write_text(
+        json.dumps(
+            {"model": model, "coefficients": {band: {"up": 0.5, "down": 0.5} for band in bands}}
+        ),
+        encoding="utf-8",
     )
+    return path
+
+
+def test_the_correction_is_scored_on_held_out_decisions(overshooting_store, record_path):
+    from gridcast.evaluate import correction_decisions
+    from gridcast.scheduling import Load
+
+    record = promoted_record(record_path, ["(0, 3]"])
+    summary, per_block = correction_decisions(
+        overshooting_store, Load(periods=1, window_hours=3.0), record=record, resamples=200
+    )
+
+    assert summary["bands"] == ["(0, 3]"]
+    assert summary["n"] > 0
+    assert summary["blocks"] >= 3
+    assert summary["gain"] == pytest.approx(
+        summary["published_regret"] - summary["corrected_regret"]
+    )
+    assert per_block["n"].sum() == summary["n"]
+    # The fixture overshoots, so damping changes which period looks cheapest.
+    # This also pins the band labels: bucketed with this module's finer error
+    # bins, (0, 3] becomes (0, 1] and (1, 3], matches nothing, and the
+    # correction silently changes no decision at all.
+    assert summary["changed"] > 0
+
+
+def test_the_correction_helps_decisions_on_an_overshooting_forecast(
+    overshooting_store, record_path
+):
+    from gridcast.evaluate import correction_decisions
+    from gridcast.scheduling import Load
+
+    record = promoted_record(record_path, ["(0, 3]", "(3, 6]"])
+    summary, _ = correction_decisions(
+        overshooting_store, Load(periods=1, window_hours=3.0), record=record, resamples=500
+    )
+    assert summary["gain"] > 0
+    assert summary["gain_low"] > 0
+
+
+def test_with_nothing_promoted_there_is_no_correction_to_score(overshooting_store, record_path):
+    from gridcast.evaluate import correction_decisions
+
+    summary, per_block = correction_decisions(overshooting_store, record=record_path)
+    assert "no band is promoted" in summary["reason"]
+    assert per_block.empty

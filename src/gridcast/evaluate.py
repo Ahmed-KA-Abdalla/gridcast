@@ -14,6 +14,11 @@ the honest head-to-head, and it grows only as the capture record grows.
 
 Reporting one in place of the other would flatter whichever is favoured by the
 difference in sample.
+
+``correction_decisions`` asks the project's central question of the correction:
+does it change decisions for the better? It answers out of sample, block by
+block, because a correction fitted on the record and scored on the same record
+is being graded on its own homework.
 """
 
 from __future__ import annotations
@@ -24,8 +29,16 @@ import numpy as np
 import pandas as pd
 
 from .baseline import add_baselines, seasonal_mean, seasonal_naive
-from .correction import corrected_forecast_record
+from .correction import (
+    DEFAULT_MODEL,
+    Damping,
+    fit_damping,
+    revision_frame,
+    rolling_blocks,
+)
 from .load import evaluation_frame, forecast_record, outcome_record
+from .revisions import LEAD_BINS as CORRECTION_BANDS
+from .revisions import revision_paths
 from .scheduling import (
     Load,
     baseline_forecasts,
@@ -139,10 +152,15 @@ def skill(candidate: dict[str, float], reference: dict[str, float]) -> float:
 def compare_schedulers(root: Path = DEFAULT_ROOT, load: Load | None = None) -> pd.DataFrame:
     """Score the published forecast and the baselines as schedulers.
 
-    Three rows, and the first two are the comparison. ``published`` and the
-    ``_matched`` baselines are scored on the same decisions: the issue times
+    Three kinds of row, and the first two are the comparison. ``published`` and
+    the ``_matched`` baselines are scored on the same decisions: the issue times
     where a forward snapshot was captured. Differences between those rows are
     differences between the forecasters.
+
+    The corrected forecast is not among them. Its coefficients are fitted on
+    this record, so scoring it here would be in sample, and as the correction
+    improved the in-sample row flattered it more. ``correction_decisions`` scores
+    it out of sample instead.
 
     The remaining rows score the baselines across the whole settled record.
     They are a much larger sample and they are not comparable with the first
@@ -164,13 +182,6 @@ def compare_schedulers(root: Path = DEFAULT_ROOT, load: Load | None = None) -> p
         decisions = evaluate_decisions(published, outcomes, load)
         rows["published"] = summarise(decisions)
 
-        # The project's own claim, tested against itself: the correction
-        # improves accuracy at 6-12 hours, and accuracy is not what a scheduler
-        # consumes. Scored on the same decisions as the published forecast.
-        corrected = corrected_forecast_record(root)
-        if not corrected.empty:
-            rows["corrected"] = summarise(evaluate_decisions(corrected, outcomes, load))
-
         # The same issue times, so the baselines face the same windows.
         if not decisions.empty:
             issues = pd.DatetimeIndex(decisions["captured_at"])
@@ -187,3 +198,130 @@ def compare_schedulers(root: Path = DEFAULT_ROOT, load: Load | None = None) -> p
         rows[f"{name}_full"] = summarise(evaluate_decisions(forecasts, outcomes, load))
 
     return pd.DataFrame(rows).T
+
+
+def _day_clustered_interval(
+    values: np.ndarray, days: np.ndarray, resamples: int, seed: int = 0
+) -> tuple[float, float]:
+    """A percentile interval for a mean, resampling whole days.
+
+    Several decisions are issued each day and their windows overlap, so they are
+    not independent. Resampling days keeps each day's decisions together.
+    """
+    frame = pd.DataFrame({"day": days, "value": values}).groupby("day")["value"]
+    sums = frame.sum().to_numpy(dtype=float)
+    sizes = frame.size().to_numpy(dtype=float)
+    if len(sums) < 2:
+        return float("nan"), float("nan")
+    rng = np.random.default_rng(seed)
+    drawn = rng.integers(0, len(sums), size=(resamples, len(sums)))
+    means = sums[drawn].sum(axis=1) / sizes[drawn].sum(axis=1)
+    low, high = np.percentile(means, [2.5, 97.5])
+    return float(low), float(high)
+
+
+def correction_decisions(
+    root: Path = DEFAULT_ROOT,
+    load: Load | None = None,
+    record: Path | None = None,
+    resamples: int = 4000,
+) -> tuple[dict[str, object], pd.DataFrame]:
+    """The promoted correction's effect on decisions, out of sample.
+
+    The correction the project claims — the promoted bands, under the model the
+    record was written with — is applied to each held-out block with
+    coefficients fitted only on earlier dates, purged of the block's target
+    periods exactly as in the accuracy evaluation. Each corrected decision is
+    paired with the published forecast's decision at the same issue time, so the
+    two face identical windows and the oracle is shared.
+
+    One qualification the interval cannot carry. Which bands are promoted was
+    decided by the gate on the same record, so the choice of bands is informed
+    by these blocks even though no coefficient is.
+    """
+    from .gate import DEFAULT_RECORD, load_record, record_model
+
+    load = load or Load()
+    record = record or DEFAULT_RECORD
+    promoted = load_record(record)
+    model = record_model(record) or DEFAULT_MODEL
+    if not promoted:
+        return {"reason": "no band is promoted, so there is no correction to apply"}, pd.DataFrame()
+
+    frame = revision_frame(root)
+    blocks = rolling_blocks(frame)
+    if not blocks:
+        return {"reason": "not enough captured revisions to hold any out"}, pd.DataFrame()
+
+    paths = revision_paths(root)
+    outcomes = outcome_record(root)
+    published = forecast_record(root)
+    paths = paths.assign(
+        # The correction's bands, not this module's finer error buckets: a
+        # promoted (0, 3] would otherwise never match and silently go unapplied.
+        band=pd.cut(paths["horizon_hours"], bins=list(CORRECTION_BANDS), right=True).astype(str),
+        date=paths["captured_at"].dt.date,
+    )
+    published = published.assign(date=published["captured_at"].dt.date)
+    columns = ["period_start", "captured_at", "forecast", "horizon_hours"]
+
+    parts = []
+    for index, (first, last) in enumerate(blocks):
+        held = frame[(frame["date"] >= first) & (frame["date"] <= last)]
+        fit = frame[frame["date"] < first]
+        fit = fit[~fit["period_start"].isin(held["period_start"].unique())]
+        fitted = fit_damping(fit, model)
+        damping = Damping({band: fitted.for_band(band) for band in promoted}, {}, model)
+
+        block = paths[(paths["date"] >= first) & (paths["date"] <= last)]
+        revision = block["revision"].fillna(0.0)
+        corrected = block.assign(
+            forecast=block["forecast"] - damping.factors(block["band"], revision) * revision
+        )[columns]
+        baseline = published[(published["date"] >= first) & (published["date"] <= last)][columns]
+
+        scored_published = evaluate_decisions(baseline, outcomes, load)
+        scored_corrected = evaluate_decisions(corrected, outcomes, load)
+        if scored_published.empty or scored_corrected.empty:
+            continue
+        merged = scored_published.merge(
+            scored_corrected,
+            on=["captured_at", "window_start"],
+            suffixes=("_published", "_corrected"),
+        )
+        parts.append(merged.assign(block=index, first=first, last=last))
+
+    if not parts:
+        return {"reason": "no held-out decision could be scored"}, pd.DataFrame()
+
+    decisions = pd.concat(parts, ignore_index=True)
+    # The oracle depends only on the outcome, so both sides share it.
+    oracle = decisions["oracle_published"]
+    decisions["regret_published"] = decisions["chosen_published"] - oracle
+    decisions["regret_corrected"] = decisions["chosen_corrected"] - oracle
+    decisions["gain"] = decisions["regret_published"] - decisions["regret_corrected"]
+    days = decisions["captured_at"].dt.date.to_numpy()
+
+    low, high = _day_clustered_interval(decisions["gain"].to_numpy(dtype=float), days, resamples)
+    per_block = (
+        decisions.groupby(["block", "first", "last"])["gain"]
+        .agg(n="size", gain="mean")
+        .reset_index()
+    )
+    changed = (decisions["chosen_published"] - decisions["chosen_corrected"]).abs() > 1e-9
+
+    summary: dict[str, object] = {
+        "model": model,
+        "bands": sorted(promoted),
+        "n": int(len(decisions)),
+        "days": int(len(set(days))),
+        "blocks": int(len(per_block)),
+        "blocks_helped": int((per_block["gain"] > 0).sum()),
+        "published_regret": float(decisions["regret_published"].mean()),
+        "corrected_regret": float(decisions["regret_corrected"].mean()),
+        "gain": float(decisions["gain"].mean()),
+        "gain_low": low,
+        "gain_high": high,
+        "changed": float(changed.mean()),
+    }
+    return summary, per_block

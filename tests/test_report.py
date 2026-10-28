@@ -259,3 +259,35 @@ def test_refresh_readme_command_reports_a_missing_marker(tmp_path_factory, capsy
 
     assert main(["refresh-readme", "--readme", str(readme)]) == 1
     assert "could not update" in capsys.readouterr().err
+
+
+def test_the_verdict_table_shows_both_directions_and_the_block_count():
+    from gridcast.gate import BandVerdict
+    from gridcast.report import verdict_table
+
+    table = verdict_table(
+        [
+            BandVerdict(
+                band="(6, 12]",
+                promoted=True,
+                damping_up=0.04,
+                damping_down=0.86,
+                improvement=1.59,
+                improvement_low=1.30,
+                improvement_high=1.89,
+                n=2614,
+                periods=2028,
+                folds=5,
+                folds_positive=5,
+            )
+        ],
+        detailed=False,
+    )
+    row = table.iloc[0]
+
+    assert row["up"] == 0.04
+    assert row["down"] == 0.86
+    assert row["blocks helped"] == "5 of 5"
+    assert row["interval high"] == 1.89
+    # The short form, for the README, leaves the reasons to the page.
+    assert "reasons" not in table.columns

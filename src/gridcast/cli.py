@@ -20,7 +20,7 @@ from .audit import (
     reference_availability,
 )
 from .client import CarbonIntensityClient, CarbonIntensityError, format_timestamp, window_range
-from .correction import evaluate_with_intervals
+from .correction import FOLDS, MODELS, revision_frame, rolling_evaluation
 from .decisions import (
     DEFAULT_ISSUE_HOURS,
     decision_dataset,
@@ -28,13 +28,20 @@ from .decisions import (
     split_decisions,
 )
 from .drift import coefficient_drift, error_drift, seasonal_drift
-from .evaluate import backtest_baselines, compare_at_matched_leads, compare_schedulers
+from .evaluate import (
+    backtest_baselines,
+    compare_at_matched_leads,
+    compare_schedulers,
+    correction_decisions,
+)
 from .gate import (
     DEFAULT_RECORD,
+    MODEL,
     coefficient_history,
     evaluate_gate,
     gate_passes,
     load_record,
+    record_model,
     write_record,
 )
 from .load import coverage, evaluation_frame
@@ -249,6 +256,28 @@ def schedule(root: Path, load: Load) -> int:
         "between\nforecasters. The '_full' rows cover the whole record and are a "
         "different\nsample — compare mean_available before comparing anything else."
     )
+
+    summary, per_block = correction_decisions(root, load)
+    if "reason" in summary:
+        print(f"\ncorrection, out of sample: {summary['reason']}")
+        return 0
+    print(
+        f"\ncorrection, out of sample: {summary['model']} damping of "
+        f"{', '.join(summary['bands'])}, each held-out block corrected with\n"
+        "coefficients fitted on earlier dates only"
+    )
+    print(
+        f"  {summary['n']} decisions over {summary['days']} days: mean regret "
+        f"{summary['published_regret']:.3f} published, {summary['corrected_regret']:.3f} corrected"
+    )
+    print(
+        f"  gain {summary['gain']:+.3f} "
+        f"({summary['gain_low']:+.3f} to {summary['gain_high']:+.3f}), "
+        f"helped in {summary['blocks_helped']} of {summary['blocks']} blocks, "
+        f"{summary['changed']:.1%} of decisions changed"
+    )
+    print("  Interval resamples whole days. The bands applied were chosen by the gate on")
+    print("  this record, so their selection is informed by these blocks; no coefficient is.")
     return 0
 
 
@@ -348,29 +377,65 @@ def revisions(root: Path) -> int:
     return 0
 
 
-def correct(root: Path, train_fraction: float) -> int:
+def correct(root: Path, folds: int) -> int:
     """Test whether damping the published forecast's revisions improves it.
 
-    The coefficient is fitted on earlier dates and scored on later ones. A
-    positive coefficient means part of each revision is undone; the improvement
-    column is what that bought out of sample, so a negative value there is a
-    result and not a failure.
+    Both models are scored the same way, on consecutive held-out blocks with
+    coefficients fitted on every earlier date, so the comparison is between
+    models and not between evaluations. A negative improvement is a result and
+    not a failure.
     """
-    summary, damping, note = evaluate_with_intervals(root, train_fraction)
+    frame = revision_frame(root)
+    if frame.empty:
+        print("not enough captured revisions to fit a correction")
+        return 0
+
+    results = {model: rolling_evaluation(frame, model, folds=folds) for model in MODELS}
+    summary, _, per_fold, note = results[MODEL]
     if summary.empty:
         print(note.get("reason", "not enough captured revisions to fit a correction"))
         return 0
 
     print(
-        f"fitted on {note['train_dates']} days ({note['train_rows']} revisions), "
-        f"scored on {note['test_dates']} days ({note['test_rows']})"
+        f"fitted on every date before each of {note['folds']} held-out blocks, "
+        f"{note['first_held_out']} to {note['last_held_out']} "
+        f"({note['held_out_rows']} of {note['total_rows']} revisions held out)"
     )
-    print("\nout-of-sample error, gCO2/kWh, with 95% intervals")
-    print(summary.round(3).to_string(index=False))
-    print("\nA positive damping coefficient means the forecast overshoots and part")
-    print("of each revision is better undone. Intervals come from a paired bootstrap")
-    print("resampled by target period, so a band is only worth believing where")
-    print("improvement_low is above zero.")
+
+    columns = [
+        "band",
+        "damping_up",
+        "damping_down",
+        "improvement",
+        "improvement_low",
+        "improvement_high",
+        "folds_positive",
+        "folds",
+        "up_range",
+        "down_range",
+        "n",
+    ]
+    comparison = pd.concat(
+        [result[0][columns].assign(model=model) for model, result in results.items()],
+        ignore_index=True,
+    ).sort_values(["band", "model"])
+    print("\nout-of-sample error by model, gCO2/kWh, with 95% intervals")
+    print(comparison[["model", *columns]].round(3).to_string(index=False))
+
+    per_fold = per_fold.assign(block=per_fold["first"].astype(str))
+    print(f"\n{MODEL}: improvement in each held-out block")
+    print(per_fold.pivot(index="band", columns="block", values="improvement").round(2).to_string())
+    coefficients = per_fold.assign(
+        fitted=per_fold["damping_up"].round(2).astype(str)
+        + " / "
+        + per_fold["damping_down"].round(2).astype(str)
+    )
+    print(f"\n{MODEL}: up / down coefficients fitted for each block")
+    print(coefficients.pivot(index="band", columns="block", values="fitted").to_string())
+
+    print("\nA positive coefficient means part of each revision is better undone. The")
+    print("interval pools every held-out row and resamples by target period; the block")
+    print("columns show whether the improvement repeats, which a pooled interval cannot.")
     return 0
 
 
@@ -383,6 +448,7 @@ def gate(root: Path, record: Path, update: bool) -> int:
     to ignore it.
     """
     previous = load_record(record)
+    previous_model = record_model(record)
     verdicts, note = evaluate_gate(root, record=record)
 
     if not verdicts:
@@ -390,33 +456,34 @@ def gate(root: Path, record: Path, update: bool) -> int:
         return 0
 
     print(
-        f"fitted on {note['train_dates']} days ({note['train_rows']} revisions), "
-        f"scored on {note['test_dates']} days ({note['test_rows']})\n"
+        f"{MODEL} model, scored on {note['folds']} held-out blocks from "
+        f"{note['first_held_out']} to {note['last_held_out']}, "
+        f"each fitted on every earlier date\n"
     )
     for item in verdicts:
         mark = "promoted" if item.promoted else "held back"
-        drift = f", was {item.previous_damping:.2f}" if item.previous_damping is not None else ""
+        was = f", was {item.previous}" if item.previous is not None else ""
         print(
-            f"{item.band:>10}  {mark:<10} damping {item.damping:.2f}{drift}, "
+            f"{item.band:>10}  {mark:<10} damping {item.damping}{was}, "
             f"improvement {item.improvement:+.3f} "
             f"({item.improvement_low:+.3f} to {item.improvement_high:+.3f}), "
+            f"helped in {item.folds_positive} of {item.folds} blocks, "
             f"n={item.n} over {item.periods} periods"
         )
         for reason in item.reasons:
             print(f"{'':>12}  - {reason}")
 
-    history = coefficient_history(record)
+    history = coefficient_history(record, model=MODEL)
     if not history.empty and history.shape[1] > 1:
-        print("\nfitted coefficient by run")
+        print(f"\nfitted coefficients by run, {MODEL} model")
         print(history.round(2).to_string())
         spread = (history.max(axis=1) - history.min(axis=1)).round(2)
         print("\nrange across runs:")
         print(spread.to_string())
         print("A coefficient settling near one value across refits is evidence no")
-        print("single run can give; one that wanders is the opposite, and will not")
-        print("always trip the drift check, which only compares consecutive runs.")
+        print("single run can give; one that wanders is the opposite.")
 
-    passes, message = gate_passes(verdicts, previous)
+    passes, message = gate_passes(verdicts, previous, previous_model=previous_model)
     print(f"\n{message}")
 
     if update:
@@ -677,10 +744,10 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
 
     correct_parser = sub.add_parser("correct", help="test a damped-revision correction")
     correct_parser.add_argument(
-        "--train-fraction",
-        type=float,
-        default=0.6,
-        help="share of dates used to fit the coefficient",
+        "--folds",
+        type=int,
+        default=FOLDS,
+        help="consecutive held-out blocks to score the correction on",
     )
 
     decisions_parser = sub.add_parser(
@@ -751,7 +818,7 @@ def main(argv: list[str] | None = None, client: CarbonIntensityClient | None = N
     if args.command == "gate":
         return gate(args.root, args.record, args.update)
     if args.command == "correct":
-        return correct(args.root, args.train_fraction)
+        return correct(args.root, args.folds)
     if args.command == "decisions":
         return decisions(
             args.root,

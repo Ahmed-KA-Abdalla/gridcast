@@ -23,8 +23,15 @@ from pathlib import Path
 import pandas as pd
 
 from .drift import seasonal_drift
-from .evaluate import compare_schedulers
-from .gate import DEFAULT_RECORD, coefficient_history, evaluate_gate, load_record
+from .evaluate import compare_schedulers, correction_decisions
+from .gate import (
+    DEFAULT_RECORD,
+    MODEL,
+    BandVerdict,
+    coefficient_history,
+    evaluate_gate,
+    load_record,
+)
 from .load import coverage
 from .revisions import distinct_revisions, error_by_lead, revision_autocorrelation, revision_paths
 from .scheduling import Load
@@ -45,6 +52,34 @@ th:first-child, td:first-child { text-align: left; }
 thead th { border-bottom: 2px solid var(--edge); }
 .promoted { color: #2a7; } .held { color: #a52; }
 """
+
+
+def verdict_table(verdicts: list[BandVerdict], detailed: bool = True) -> pd.DataFrame:
+    """The gate's verdicts as one table, shared by the page and the README.
+
+    Both bounds of the interval are shown because a band whose interval lies
+    wholly below zero is reliably harmful rather than merely unproven. The
+    block count is shown because a pooled interval cannot reveal an improvement
+    carried by one stretch of weeks.
+    """
+    rows = []
+    for item in verdicts:
+        row = {
+            "band": item.band,
+            "verdict": "promoted" if item.promoted else "held back",
+            "up": item.damping_up,
+            "down": item.damping_down,
+            "improvement": item.improvement,
+            "interval low": item.improvement_low,
+            "interval high": item.improvement_high,
+            "blocks helped": f"{item.folds_positive} of {item.folds}",
+            "n": item.n,
+        }
+        if detailed:
+            row["periods"] = item.periods
+            row["reasons"] = "; ".join(item.reasons) or "—"
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 
 def _table(frame: pd.DataFrame, decimals: int = 3) -> str:
@@ -100,44 +135,52 @@ def build_report(
         )
     )
 
+    corrected, per_block = correction_decisions(root, load, record=record)
+    if "reason" not in corrected:
+        sections.append(
+            _section(
+                "The correction's effect on decisions",
+                f"The promoted correction — {corrected['model']} damping of "
+                f"{', '.join(corrected['bands'])} — applied out of sample: each held-out block "
+                "is corrected with coefficients fitted on earlier dates only, and every "
+                "corrected decision is paired with the published forecast's decision at the "
+                f"same issue time. Over {corrected['n']} decisions on {corrected['days']} days, "
+                f"mean regret fell from {corrected['published_regret']:.3f} to "
+                f"{corrected['corrected_regret']:.3f} gCO2/kWh: a gain of "
+                f"{corrected['gain']:+.3f} ({corrected['gain_low']:+.3f} to "
+                f"{corrected['gain_high']:+.3f}), resampling whole days. The bands were chosen "
+                "by the gate on this record, so their selection is informed by these blocks; "
+                "no coefficient is.",
+                _table(per_block),
+            )
+        )
+
     verdicts, note = evaluate_gate(root, record=record)
     if verdicts:
-        rows = pd.DataFrame(
-            [
-                {
-                    "band": item.band,
-                    "verdict": "promoted" if item.promoted else "held back",
-                    "damping": item.damping,
-                    "improvement": item.improvement,
-                    "interval low": item.improvement_low,
-                    "interval high": item.improvement_high,
-                    "n": item.n,
-                    "periods": item.periods,
-                    "reasons": "; ".join(item.reasons) or "—",
-                }
-                for item in verdicts
-            ]
-        )
         gate_note = (
-            f"Fitted on {note.get('train_dates', 0)} days, scored on {note.get('test_dates', 0)}. "
-            "A band is promoted only where the improvement's lower bound clears a tenth of a "
-            "gCO2/kWh, the band carries enough held-out data, and the refitted coefficient is "
-            "close to the one it replaces. Both bounds are shown because a band whose interval "
-            "lies wholly below zero is reliably harmful rather than merely unproven, and the "
-            "two call for opposite responses."
+            f"The {MODEL} correction: upward and downward revisions are damped by separate "
+            f"coefficients. Scored on {note.get('folds', 0)} consecutive held-out blocks from "
+            f"{note.get('first_held_out')} to {note.get('last_held_out')}, each corrected with "
+            "coefficients fitted on every earlier date. A band is promoted only where the pooled "
+            "improvement's lower bound clears a tenth of a gCO2/kWh, the correction helped in at "
+            "least four blocks in five, and the coefficients moved by no more than 0.25 between "
+            "the blocks' fits. Both bounds are shown because a band whose interval lies wholly "
+            "below zero is reliably harmful rather than merely unproven."
         )
-        sections.append(_section("The damping correction", gate_note, _table(rows)))
+        sections.append(
+            _section("The damping correction", gate_note, _table(verdict_table(verdicts)))
+        )
 
-    history = coefficient_history(record)
+    history = coefficient_history(record, model=MODEL)
     if not history.empty and history.shape[1] > 1:
         spread = (history.max(axis=1) - history.min(axis=1)).rename("range")
         combined = pd.concat([history, spread], axis=1).reset_index()
         sections.append(
             _section(
                 "Coefficient stability",
-                "The same coefficient refitted on each gate run. A coefficient that settles "
-                "while the inputs move is evidence the correction belongs to the forecast "
-                "rather than to the weather it was fitted in.",
+                "The same coefficients refitted on each gate run under the current model. A "
+                "coefficient that settles while the inputs move is evidence the correction "
+                "belongs to the forecast rather than to the weather it was fitted in.",
                 _table(combined),
             )
         )
@@ -180,11 +223,12 @@ def build_report(
         )
 
     promoted = load_record(record)
+    promoted_text = "; ".join(f"{band} ({value})" for band, value in promoted.items())
     footer = (
         "<p class='note'>Generated by <code>gridcast report-page</code> from the committed "
         "record. Every figure is computed by the same functions the command line uses. "
         f"Promoted coefficients at build time: "
-        f"{html.escape(str(promoted) if promoted else 'none')}.</p>"
+        f"{html.escape(promoted_text or 'none')}.</p>"
     )
 
     return (
@@ -263,26 +307,26 @@ def readme_block(
             "",
         ]
 
-    verdicts, _ = evaluate_gate(root, record=record)
-    if verdicts:
-        rows = pd.DataFrame(
-            [
-                {
-                    "band": item.band,
-                    "verdict": "promoted" if item.promoted else "held back",
-                    "damping": item.damping,
-                    "improvement": item.improvement,
-                    "interval low": item.improvement_low,
-                    "interval high": item.improvement_high,
-                    "n": item.n,
-                }
-                for item in verdicts
-            ]
-        )
+    corrected, _ = correction_decisions(root, load, record=record)
+    if "reason" not in corrected:
         lines += [
-            "**Damping correction**, as the gate last judged it.",
+            f"**The promoted correction, out of sample** ({corrected['model']} damping of "
+            f"{', '.join(corrected['bands'])}): mean regret {corrected['published_regret']:.3f}",
+            f"published against {corrected['corrected_regret']:.3f} corrected over "
+            f"{corrected['n']} held-out decisions, a gain of {corrected['gain']:+.3f} "
+            f"({corrected['gain_low']:+.3f} to {corrected['gain_high']:+.3f}), helped in "
+            f"{corrected['blocks_helped']} of {corrected['blocks']} blocks.",
             "",
-            _markdown_table(rows),
+        ]
+
+    verdicts, note = evaluate_gate(root, record=record)
+    if verdicts:
+        lines += [
+            f"**Damping correction**, as the gate last judged it: separate coefficients for "
+            f"upward and downward revisions, scored on {note.get('folds', 0)} consecutive",
+            "held-out blocks, each fitted on every earlier date.",
+            "",
+            _markdown_table(verdict_table(verdicts, detailed=False)),
             "",
         ]
 

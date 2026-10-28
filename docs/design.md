@@ -663,6 +663,134 @@ problem is improved rather than solved.
 This finding exists because the gate failed. That is the argument for the gate
 stated more cheaply than any amount of design reasoning could state it.
 
+**Correction, 27 October.** The table above is wrong in two ways, and the
+section below replaces it. The coefficients were fitted with the centred slope,
+which is the fit of a model with an intercept, and then applied without one;
+that is where the downward coefficients above 1.0 came from. And every figure
+rests on one train-test split. Refitted correctly and scored on five
+consecutive blocks, the asymmetry holds at three to twelve hours and does not
+hold beyond twelve, where the four-of-five recovery claimed above was a
+property of that split.
+
+## The asymmetric correction, fitted and scored properly
+
+**The estimator.** The correction applied is `published - damping * revision`.
+Its least-squares coefficient is `-sum(error * revision) / sum(revision ** 2)`.
+The symmetric fit used `-cov(error, revision) / var(revision)`, which is the
+slope of a regression with an intercept. For revisions that average close to
+zero the two agree to two decimal places, which is why the difference never
+showed. Within one direction every revision has the same sign, the mean is far
+from zero, and the two disagree badly: at twenty-four to forty-eight hours the
+centred fit gave an upward coefficient of -0.30 against +0.42 through the
+origin. Both models are now fitted through the origin, and a test checks the
+fitted coefficient against a brute-force minimisation of the applied model's
+squared error.
+
+Keeping the intercept and applying it was also tried, as a direction-specific
+bias correction. Chosen on a split inside the training data (fit 20 August to 4
+September, validate 6 to 23 September), it lost 5 to 9 gCO2/kWh at every lead
+beyond six hours, and 2 to 3 at three to six. Level corrections do not transfer even between late summer
+and early autumn, which is consistent with the bias having changed sign over the
+same period (-1.2 to +4.2 at short lead).
+
+That validation split also showed the asymmetric model losing 3.4 and 5.3
+gCO2/kWh at twelve to twenty-four and twenty-four to forty-eight hours, where
+the September-to-October split had it gaining. One split each way is not
+evidence for either.
+
+**The evaluation.** `rolling_evaluation` holds out five consecutive blocks
+covering the last sixty per cent of rows, each placed on date boundaries to hold
+roughly equal rows, and corrects each with coefficients fitted on every earlier
+date. Target periods scored in a block are purged from its fit: a period's
+first revisions can fall on the day before the boundary, and its outcome would
+then inform the coefficient scored on it. A test checks both properties on
+every fit the evaluation makes. The coefficients a promotion applies are fitted
+on the whole record.
+
+On the record as of 27 October, improvement in mean absolute error over the
+pooled held-out rows, gCO2/kWh:
+
+| band | symmetric | asymmetric | blocks helped | up | down | up range | down range |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `(0, 3]` | -0.319 (-0.755, +0.098) | -0.001 (-0.380, +0.391) | 2 of 5 | 0.12 | 0.58 | 0.10 | 0.07 |
+| `(3, 6]` | +0.521 (+0.096, +0.959) | +0.954 (+0.578, +1.341) | 4 of 5 | 0.18 | 0.71 | 0.08 | 0.11 |
+| `(6, 12]` | +0.261 (+0.043, +0.497) | +1.592 (+1.301, +1.886) | 5 of 5 | 0.04 | 0.86 | 0.10 | 0.12 |
+| `(12, 24]` | +0.206 (+0.139, +0.273) | +0.712 (+0.543, +0.880) | 3 of 5 | -0.31 | 1.50 | 1.34 | 1.98 |
+| `(24, 48]` | -0.211 (-0.294, -0.128) | -0.595 (-0.783, -0.407) | 3 of 5 | -0.55 | 1.28 | 2.81 | 2.15 |
+
+"Blocks helped" and the ranges are for the asymmetric model; the ranges are how
+far each coefficient moved across the five blocks' fits.
+
+Between three and twelve hours the asymmetry is stable. The upward coefficients
+stay between 0.06 and 0.27 and the downward between 0.64 and 0.87 across every
+block's fit, and the improvement repeats. Beyond twelve hours the coefficients
+change sign between refits and the improvement in a block runs from -2.9 to
++2.7. Revisions at those leads are small (a mean absolute revision near 4
+gCO2/kWh against 15 to 17 under six hours), so a ratio of error to revision is
+poorly determined there, and the change in capture rate between August and
+September changes what a single revision spans. Whatever the reason, the
+coefficients there describe the sample.
+
+`(12, 24]` is the case the new checks exist for. Its pooled interval, +0.543 to
++0.880, would have promoted it under the previous gate. It helped in three
+blocks of five and its coefficients ranged over 1.3 and 2.0.
+
+At six to twelve hours the upward coefficient falls steadily across the blocks,
+0.16 to 0.06, and the downward rises, 0.75 to 0.87. Both are inside the
+tolerance. The asymmetry is strengthening through autumn rather than
+fluctuating, and a sustained trend will eventually trip the range check.
+
+**The gate.** Four conditions now: the pooled lower bound above 0.1, enough
+observations and periods, the correction helping in at least four blocks of
+five, and each coefficient within 0.25 across the blocks' fits and against the
+previous run. The within-run range check is the one that would have caught the
+long-lead bands on their first evaluation; the between-run check needs weeks of
+history to see the same thing.
+
+The record now names its model and stores both coefficients per band. A record
+from before this change reads as symmetric, with equal coefficients, which is
+what it described. When the model changes, the previous record's coefficients
+are not compared against the new ones — a symmetric 0.33 against an asymmetric
+-0.31 / 1.50 is a change of model, not drift — and its promotions are not
+treated as regressions. The bands dropped are listed in the gate's message. On
+27 October that was `(12, 24]`, promoted symmetric, which the asymmetric model
+does not promote. The symmetric fit there still clears the gate's conditions on
+the rolling evaluation (+0.206, 4 of 5, range 0.08); it is withdrawn because
+the repository now claims one model, not because it failed.
+
+**Decisions.** `compare_schedulers` used to score the corrected forecast beside
+the published one on the whole record, with coefficients fitted on that record.
+Under the asymmetric record that in-sample row showed mean regret falling from
+8.77 to 7.64. It has been removed. `correction_decisions` applies the promoted
+bands to each held-out block with coefficients fitted only on earlier dates,
+pairs each corrected decision with the published forecast's at the same issue
+time, and resamples whole days for the interval.
+
+| load | correction | decisions | regret, published | regret, corrected | gain | blocks helped |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2 h in 24 h | asymmetric `(3, 6]`, `(6, 12]` | 236 | 10.883 | 9.370 | +1.514 (+0.349, +2.749) | 5 of 5 |
+| 2 h in 24 h | symmetric `(12, 24]` | 236 | 10.883 | 11.333 | -0.449 (-1.160, +0.136) | 1 of 5 |
+| 1 h in 6 h | asymmetric `(3, 6]`, `(6, 12]` | 239 | 4.987 | 4.680 | +0.308 (-0.419, +1.141) | 4 of 5 |
+
+The asymmetric correction changed 17% of decisions on the two-hour load. This
+reverses the project's earlier finding that the correction changed almost no
+decisions, which was true of the symmetric correction and, at the time, was
+scored in sample. Applying every fitted band, including the unstable long-lead
+ones, gives a larger figure (+2.27) that is not claimed.
+
+Two qualifications. The bands applied were chosen by the gate on the same
+record, so the selection is informed by the held-out blocks even though no
+coefficient is. And decisions issued on adjacent days have overlapping windows,
+so resampling days understates the dependence somewhat. 46 days of one autumn is
+the whole of the evidence.
+
+**A bug caught on the way.** `evaluate.py` defines its own lead bins, which
+split zero to three hours at one. The first version of `correction_decisions`
+bucketed forecasts with those, so a promoted `(0, 3]` would have matched no row
+and been silently never applied. A test now promotes `(0, 3]` on the
+overshooting fixture and requires decisions to change; it fails with the wrong
+bins.
+
 ## Known limitations
 
 Scheduled workflows on GitHub are best-effort. Runs are delayed under load and
