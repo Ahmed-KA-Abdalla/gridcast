@@ -1,15 +1,15 @@
 {
  "coefficients": {
   "(3, 6]": {
-   "down": 0.7154107962640494,
-   "up": 0.18042300293039948
+   "down": 0.7199848881472224,
+   "up": 0.13951680530159136
   },
   "(6, 12]": {
-   "down": 0.8596067333330026,
-   "up": 0.032325743586778595
+   "down": 0.871177689526758,
+   "up": 0.00012504477954943324
   }
  },
- "generated": "2026-10-28T06:47:25.820871+00:00",
+ "generated": "2026-11-02T17:16:49.004048+00:00",
  "history": [
   {
    "fitted": {
@@ -165,109 +165,138 @@
     "(3, 6]",
     "(6, 12]"
    ]
+  },
+  {
+   "fitted": {
+    "(0, 3]": {
+     "down": 0.5720879633227135,
+     "up": 0.10670696920055095
+    },
+    "(12, 24]": {
+     "down": 1.775639033965093,
+     "up": -0.48078283237382496
+    },
+    "(24, 48]": {
+     "down": 1.4736741953403862,
+     "up": -0.5770684119535687
+    },
+    "(3, 6]": {
+     "down": 0.7199848881472224,
+     "up": 0.13951680530159136
+    },
+    "(6, 12]": {
+     "down": 0.871177689526758,
+     "up": 0.00012504477954943324
+    }
+   },
+   "generated": "2026-11-02T17:16:49.004048+00:00",
+   "model": "asymmetric",
+   "promoted": [
+    "(3, 6]",
+    "(6, 12]"
+   ]
   }
  ],
  "model": "asymmetric",
  "verdicts": [
   {
    "band": "(0, 3]",
-   "damping_down": 0.5828000558153008,
-   "damping_up": 0.12272176187088564,
-   "down_range": 0.0435355903316349,
+   "damping_down": 0.5720879633227135,
+   "damping_up": 0.10670696920055095,
+   "down_range": 0.07541962113422895,
    "folds": 5,
    "folds_positive": 2,
-   "improvement": 0.052384151405584944,
-   "improvement_high": 0.4474164013363878,
-   "improvement_low": -0.3297654722655466,
-   "n": 1398,
-   "periods": 1371,
+   "improvement": -0.09508698951964512,
+   "improvement_high": 0.30395245860590303,
+   "improvement_low": -0.4604784507191692,
+   "n": 1489,
+   "periods": 1464,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "interval includes zero (low -0.330)",
+    "interval includes zero (low -0.460)",
     "helped in only 2 of 5 held-out blocks, needs 4"
    ],
-   "up_range": 0.09516856456963044
+   "up_range": 0.10635111372719455
   },
   {
    "band": "(12, 24]",
-   "damping_down": 1.520965187527063,
-   "damping_up": -0.3208664079128584,
-   "down_range": 1.8648169221567907,
+   "damping_down": 1.775639033965093,
+   "damping_up": -0.48078283237382496,
+   "down_range": 1.5533245798067943,
    "folds": 5,
-   "folds_positive": 3,
-   "improvement": 0.753026690306811,
-   "improvement_high": 0.9170861974514032,
-   "improvement_low": 0.5995943006448964,
-   "n": 4937,
-   "periods": 2212,
+   "folds_positive": 4,
+   "improvement": 1.2753647218450723,
+   "improvement_high": 1.4606716637551647,
+   "improvement_low": 1.093469315937543,
+   "n": 5333,
+   "periods": 2408,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "helped in only 3 of 5 held-out blocks, needs 4",
-    "coefficient unstable across held-out blocks (up ranged 1.26, down ranged 1.86, limit 0.25)"
+    "coefficient unstable across held-out blocks (up ranged 1.01, down ranged 1.55, limit 0.25)"
    ],
-   "up_range": 1.2587203260142912
+   "up_range": 1.0075962244691692
   },
   {
    "band": "(24, 48]",
-   "damping_down": 1.2887409017003753,
-   "damping_up": -0.5578113705647569,
-   "down_range": 2.0430376806008494,
+   "damping_down": 1.4736741953403862,
+   "damping_up": -0.5770684119535687,
+   "down_range": 1.3903404257969485,
    "folds": 5,
    "folds_positive": 3,
-   "improvement": -0.5532359597041285,
-   "improvement_high": -0.35501838274563413,
-   "improvement_low": -0.7449958417114705,
-   "n": 7634,
-   "periods": 2199,
+   "improvement": -0.07563417623882174,
+   "improvement_high": 0.13471601758174565,
+   "improvement_low": -0.28197577395315976,
+   "n": 8200,
+   "periods": 2400,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "significantly worse out of sample (interval -0.745 to -0.355)",
+    "interval includes zero (low -0.282)",
     "helped in only 3 of 5 held-out blocks, needs 4",
-    "coefficient unstable across held-out blocks (up ranged 2.80, down ranged 2.04, limit 0.25)"
+    "coefficient unstable across held-out blocks (up ranged 2.72, down ranged 1.39, limit 0.25)"
    ],
-   "up_range": 2.804376085712803
+   "up_range": 2.715929063520162
   },
   {
    "band": "(3, 6]",
-   "damping_down": 0.7154107962640494,
-   "damping_up": 0.18042300293039948,
-   "down_range": 0.08368947333938725,
+   "damping_down": 0.7199848881472224,
+   "damping_up": 0.13951680530159136,
+   "down_range": 0.08659922044111334,
    "folds": 5,
    "folds_positive": 4,
-   "improvement": 0.9659361428064592,
-   "improvement_high": 1.3333383540334378,
-   "improvement_low": 0.595583065694031,
-   "n": 1380,
-   "periods": 1356,
-   "previous_down": null,
-   "previous_up": null,
+   "improvement": 0.7876490345285774,
+   "improvement_high": 1.1536356991894596,
+   "improvement_low": 0.4371903332041939,
+   "n": 1477,
+   "periods": 1453,
+   "previous_down": 0.7154107962640494,
+   "previous_up": 0.18042300293039948,
    "promoted": true,
    "reasons": [],
-   "up_range": 0.07038321011522033
+   "up_range": 0.0757159231894867
   },
   {
    "band": "(6, 12]",
-   "damping_down": 0.8596067333330026,
-   "damping_up": 0.032325743586778595,
-   "down_range": 0.10021006294349466,
+   "damping_down": 0.871177689526758,
+   "damping_up": 0.00012504477954943324,
+   "down_range": 0.12059050185060605,
    "folds": 5,
    "folds_positive": 5,
-   "improvement": 1.5785265329045046,
-   "improvement_high": 1.8688261933186976,
-   "improvement_low": 1.2756151783444492,
-   "n": 2632,
-   "periods": 2045,
-   "previous_down": null,
-   "previous_up": null,
+   "improvement": 1.516380213150569,
+   "improvement_high": 1.7899786773601731,
+   "improvement_low": 1.2566655714140056,
+   "n": 2818,
+   "periods": 2217,
+   "previous_down": 0.8596067333330026,
+   "previous_up": 0.032325743586778595,
    "promoted": true,
    "reasons": [],
-   "up_range": 0.09649908673852745
+   "up_range": 0.10719768557148719
   }
  ]
 }
