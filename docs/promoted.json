@@ -1,6 +1,11 @@
 {
- "coefficients": {},
- "generated": "2026-11-09T17:42:24.270177+00:00",
+ "coefficients": {
+  "(6, 12]": {
+   "down": 0.871294303565694,
+   "up": -0.07810872292025427
+  }
+ },
+ "generated": "2026-11-16T17:13:20.605744+00:00",
  "history": [
   {
    "fitted": {
@@ -213,112 +218,138 @@
    "generated": "2026-11-09T17:42:24.270177+00:00",
    "model": "asymmetric",
    "promoted": []
+  },
+  {
+   "fitted": {
+    "(0, 3]": {
+     "down": 0.5577682286383274,
+     "up": 0.09151542110200432
+    },
+    "(12, 24]": {
+     "down": 1.8841830175261596,
+     "up": -0.6610455261650114
+    },
+    "(24, 48]": {
+     "down": 1.7336496376099888,
+     "up": -0.7918656276790889
+    },
+    "(3, 6]": {
+     "down": 0.7018254724917279,
+     "up": 0.07458900161929245
+    },
+    "(6, 12]": {
+     "down": 0.871294303565694,
+     "up": -0.07810872292025427
+    }
+   },
+   "generated": "2026-11-16T17:13:20.605744+00:00",
+   "model": "asymmetric",
+   "promoted": [
+    "(6, 12]"
+   ]
   }
  ],
  "model": "asymmetric",
  "verdicts": [
   {
    "band": "(0, 3]",
-   "damping_down": 0.5720457363082884,
-   "damping_up": 0.09229031992032126,
-   "down_range": 0.09341163567754862,
+   "damping_down": 0.5577682286383274,
+   "damping_up": 0.09151542110200432,
+   "down_range": 0.04788063053693681,
    "folds": 5,
-   "folds_positive": 2,
-   "improvement": -0.16085588368768455,
-   "improvement_high": 0.21648211570954418,
-   "improvement_low": -0.4939909858547119,
-   "n": 1567,
-   "periods": 1546,
+   "folds_positive": 1,
+   "improvement": -0.2089947150303999,
+   "improvement_high": 0.12218293831800538,
+   "improvement_low": -0.5230658884934507,
+   "n": 1661,
+   "periods": 1641,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "interval includes zero (low -0.494)",
-    "helped in only 2 of 5 held-out blocks, needs 4"
+    "interval includes zero (low -0.523)",
+    "helped in only 1 of 5 held-out blocks, needs 4"
    ],
-   "up_range": 0.1015373223335981
+   "up_range": 0.11620051195931815
   },
   {
    "band": "(12, 24]",
-   "damping_down": 1.918364446837791,
-   "damping_up": -0.7280634833912444,
-   "down_range": 1.2895188684336594,
+   "damping_down": 1.8841830175261596,
+   "damping_up": -0.6610455261650114,
+   "down_range": 1.4991694875214807,
    "folds": 5,
    "folds_positive": 4,
-   "improvement": 2.183384391288971,
-   "improvement_high": 2.3797720159347966,
-   "improvement_low": 1.9610450654972487,
-   "n": 5623,
-   "periods": 2640,
+   "improvement": 2.2712953146713275,
+   "improvement_high": 2.482763868207428,
+   "improvement_low": 2.055089972169661,
+   "n": 5969,
+   "periods": 2891,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "coefficient unstable across held-out blocks (up ranged 0.79, down ranged 1.29, limit 0.25)"
+    "coefficient unstable across held-out blocks (up ranged 0.94, down ranged 1.50, limit 0.25)"
    ],
-   "up_range": 0.786987543128941
+   "up_range": 0.9409350386983922
   },
   {
    "band": "(24, 48]",
-   "damping_down": 1.752518343157321,
-   "damping_up": -0.804408440679822,
-   "down_range": 1.1423273254387376,
+   "damping_down": 1.7336496376099888,
+   "damping_up": -0.7918656276790889,
+   "down_range": 1.2055344839164719,
    "folds": 5,
-   "folds_positive": 2,
-   "improvement": 1.1283758755641244,
-   "improvement_high": 1.3255867449167913,
-   "improvement_low": 0.9229141128121886,
-   "n": 8605,
-   "periods": 2635,
+   "folds_positive": 4,
+   "improvement": 1.627066462840439,
+   "improvement_high": 1.821687089097775,
+   "improvement_low": 1.4312079149312418,
+   "n": 9094,
+   "periods": 2875,
    "previous_down": null,
    "previous_up": null,
    "promoted": false,
    "reasons": [
-    "helped in only 2 of 5 held-out blocks, needs 4",
-    "coefficient unstable across held-out blocks (up ranged 2.04, down ranged 1.14, limit 0.25)"
+    "coefficient unstable across held-out blocks (up ranged 2.03, down ranged 1.21, limit 0.25)"
    ],
-   "up_range": 2.0388712320770814
+   "up_range": 2.028488677728145
   },
   {
    "band": "(3, 6]",
-   "damping_down": 0.7199848881472224,
-   "damping_up": 0.07807693542386997,
-   "down_range": 0.10531459658912645,
+   "damping_down": 0.7018254724917279,
+   "damping_up": 0.07458900161929245,
+   "down_range": 0.07642024265272163,
    "folds": 5,
    "folds_positive": 3,
-   "improvement": 0.4342590358858551,
-   "improvement_high": 0.7734594607423894,
-   "improvement_low": 0.09763410909990763,
-   "n": 1557,
-   "periods": 1537,
-   "previous_down": 0.7199848881472224,
-   "previous_up": 0.13951680530159136,
+   "improvement": 0.32314448610215507,
+   "improvement_high": 0.6488512200445934,
+   "improvement_low": 0.004765494205529911,
+   "n": 1650,
+   "periods": 1631,
+   "previous_down": null,
+   "previous_up": null,
    "promoted": false,
    "reasons": [
-    "improvement too small to claim (low 0.098, needs 0.10)",
+    "improvement too small to claim (low 0.005, needs 0.10)",
     "helped in only 3 of 5 held-out blocks, needs 4"
    ],
-   "up_range": 0.09036833345016373
+   "up_range": 0.11529664170844914
   },
   {
    "band": "(6, 12]",
-   "damping_down": 0.8745231359399783,
-   "damping_up": -0.07952627567767429,
-   "down_range": 0.1129062961183167,
+   "damping_down": 0.871294303565694,
+   "damping_up": -0.07810872292025427,
+   "down_range": 0.08621518219335611,
    "folds": 5,
    "folds_positive": 5,
-   "improvement": 1.3594153140565588,
-   "improvement_high": 1.6120299810222913,
-   "improvement_low": 1.104589069455629,
-   "n": 2974,
-   "periods": 2400,
-   "previous_down": 0.871177689526758,
-   "previous_up": 0.00012504477954943324,
-   "promoted": false,
-   "reasons": [
-    "up coefficient changed sign"
-   ],
-   "up_range": 0.09779272641643755
+   "improvement": 1.3010043361897843,
+   "improvement_high": 1.543990445062276,
+   "improvement_low": 1.0686345277168283,
+   "n": 3152,
+   "periods": 2588,
+   "previous_down": null,
+   "previous_up": null,
+   "promoted": true,
+   "reasons": [],
+   "up_range": 0.1358762597559125
   }
  ]
 }
