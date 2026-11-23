@@ -8,32 +8,32 @@
 
 <!-- figures:start -->
 
-_Figures below regenerated 2026-11-16 from 50,388 settled half-hours and 578 captured forecast issues._
+_Figures below regenerated 2026-11-23 from 50,747 settled half-hours and 601 captured forecast issues._
 
 **Decision quality** — 2h contiguous load within 24h. Rows ending `_matched` face the same
 decisions as the published forecast; `_full` rows are a different sample.
 
 | forecaster             |    n |   mean_regret |   hit_rate |   captured_fraction |
 |:-----------------------|-----:|--------------:|-----------:|--------------------:|
-| published              |  563 |         9.311 |      0.187 |               0.879 |
-| seasonal_naive_matched |  563 |        19.648 |      0.096 |               0.781 |
-| seasonal_mean_matched  |  563 |        17.627 |      0.082 |               0.809 |
-| seasonal_naive_full    | 1041 |        17.645 |      0.076 |               0.804 |
-| seasonal_mean_full     | 1041 |        12.947 |      0.085 |               0.852 |
+| published              |  587 |         9.319 |      0.189 |               0.879 |
+| seasonal_naive_matched |  587 |        20.357 |      0.095 |               0.775 |
+| seasonal_mean_matched  |  587 |        19.089 |      0.078 |               0.797 |
+| seasonal_naive_full    | 1049 |        17.737 |      0.075 |               0.803 |
+| seasonal_mean_full     | 1049 |        13.135 |      0.084 |               0.851 |
 
-**The promoted correction, out of sample** (asymmetric damping of (6, 12]): mean regret 10.824
-published against 9.878 corrected over 282 held-out decisions, a gain of +0.947 (+0.179 to +1.890), helped in 4 of 5 blocks.
+**The promoted correction, out of sample** (asymmetric damping of (6, 12]): mean regret 10.716
+published against 9.899 corrected over 295 held-out decisions, a gain of +0.817 (+0.123 to +1.664), helped in 3 of 5 blocks.
 
 **Damping correction**, as the gate last judged it: separate coefficients for upward and downward revisions, scored on 5 consecutive
 held-out blocks, each fitted on every earlier date.
 
 | band     | verdict   |     up |   down |   improvement |   interval low |   interval high | blocks helped   |    n |
 |:---------|:----------|-------:|-------:|--------------:|---------------:|----------------:|:----------------|-----:|
-| (0, 3]   | held back |  0.092 |  0.558 |        -0.209 |         -0.523 |           0.122 | 1 of 5          | 1661 |
-| (12, 24] | held back | -0.661 |  1.884 |         2.271 |          2.055 |           2.483 | 4 of 5          | 5969 |
-| (24, 48] | held back | -0.792 |  1.734 |         1.627 |          1.431 |           1.822 | 4 of 5          | 9094 |
-| (3, 6]   | held back |  0.075 |  0.702 |         0.323 |          0.005 |           0.649 | 3 of 5          | 1650 |
-| (6, 12]  | promoted  | -0.078 |  0.871 |         1.301 |          1.069 |           1.544 | 5 of 5          | 3152 |
+| (0, 3]   | held back |  0.092 |  0.527 |        -0.432 |         -0.764 |          -0.086 | 1 of 5          | 1732 |
+| (12, 24] | held back | -0.543 |  1.792 |         1.703 |          1.498 |           1.925 | 4 of 5          | 6315 |
+| (24, 48] | held back | -0.669 |  1.566 |         0.99  |          0.783 |           1.196 | 4 of 5          | 9558 |
+| (3, 6]   | held back |  0.076 |  0.688 |         0.187 |         -0.132 |           0.514 | 3 of 5          | 1721 |
+| (6, 12]  | promoted  | -0.06  |  0.868 |         1.097 |          0.88  |           1.34  | 4 of 5          | 3306 |
 
 **Seasonal drift** of intensity against summer, which is when the captured
 forecasts begin.
@@ -43,7 +43,7 @@ forecasts begin.
 | winter   |                0.285 | large shift    | 143.097 | 11521 |
 | spring   |                0.037 | stable         | 118.303 | 13248 |
 | summer   |                0     | stable         | 114.307 | 13217 |
-| autumn   |                0.147 | moderate shift | 132.293 | 12402 |
+| autumn   |                0.16  | moderate shift | 133.291 | 12761 |
 
 <!-- figures:end -->
 
